@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>チョウザメ育成</title>
+<meta name="theme-color" content="#0b3644">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="チョウザメ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+  :root { --bg: rgba(6, 28, 38, .72); --line: rgba(160, 220, 235, .22); --tx: #e9f6f8; --sub: #9fc3cb; --acc: #5fd3a0; --warn: #ffc04d; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b3a4a; color-scheme: dark; color: var(--tx); font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; -webkit-user-select: none; user-select: none; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+  #vignette { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 50%, rgba(2, 22, 30, .5) 100%); }
+  .panel { background: var(--bg); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  button, label, input { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  button { font: inherit; color: var(--tx); background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; cursor: pointer; }
+  button:active { transform: scale(.97); }
+  #hud { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 12px; width: min(300px, calc(100vw - 24px)); padding: 12px 14px; }
+  #hud .top { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
+  #hud .fold { margin-left: auto; font-size: 12px; color: var(--sub); }
+  #hud.mini .more { display: none; }
+  #name { font-size: 20px; font-weight: 700; white-space: nowrap; }
+  #stage { font-size: 11px; white-space: nowrap; color: #0b2a33; background: var(--acc); border-radius: 99px; padding: 2px 8px; font-weight: 700; }
+  #sex { margin-left: auto; font-size: 12px; color: var(--sub); }
+  #trait { font-size: 11px; color: #bfe8d4; margin-top: 2px; }
+  #age-row { display: flex; gap: 8px; align-items: baseline; }
+  #hud .top { flex-wrap: wrap; row-gap: 4px; }
+  #age { font-size: 13px; color: var(--sub); margin-top: 2px; }
+  .size { display: flex; gap: 10px; align-items: baseline; margin: 4px 0 8px; }
+  #len { font-size: 26px; font-weight: 800; letter-spacing: .02em; }
+  #wt { color: var(--sub); }
+  #pace { font-size: 11px; color: var(--warn); min-height: 0; }
+  .meters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .m { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--sub); margin: 2px 0; }
+  .m .bar { height: 7px; background: rgba(255,255,255,.1); border-radius: 9px; overflow: hidden; }
+  .m .bar i { display: block; height: 100%; width: 50%; border-radius: 9px; transition: width .4s; }
+  .temp { display: grid; grid-template-columns: 52px 1fr 44px; align-items: center; gap: 6px; font-size: 12px; color: var(--sub); margin-top: 6px; }
+  .temp input { width: 100%; accent-color: var(--acc); }
+  #temp-val { color: var(--tx); font-weight: 700; text-align: right; }
+  #temp-ok { font-size: 11px; color: var(--sub); text-align: right; }
+  #temp-ok.warn { color: var(--warn); }
+  #bubble { margin-top: 8px; font-size: 13px; padding: 7px 10px; background: rgba(255,255,255,.07); border-radius: 10px; }
+  #tank-name { font-size: 11px; color: var(--sub); margin-top: 6px; }
+  #ruler { position: fixed; right: 14px; top: max(14px, env(safe-area-inset-top)); text-align: center; font-size: 12px; color: var(--tx); text-shadow: 0 1px 3px #000; pointer-events: none; }
+  #ruler-bar { height: 6px; border: 2px solid #fff; border-top: none; margin: 3px auto 0; box-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  #bottom { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(12px, env(safe-area-inset-bottom)); display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 8px; width: max-content; max-width: calc(100vw - 16px); }
+  #bottom .big { font-size: 15px; font-weight: 700; padding: 10px 14px; }
+  #btn-food { background: #e98a3c; border-color: #e98a3c; color: #fff; }
+  #speed { display: flex; gap: 2px; align-items: center; }
+  #speed button { padding: 8px 9px; font-size: 13px; }
+  #speed button.on { background: var(--acc); color: #0b2a33; border-color: var(--acc); }
+  #speed-label { font-size: 11px; color: var(--sub); width: 100%; text-align: center; }
+  .speedwrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  label.auto { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 0 6px; }
+  #toasts { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; width: min(92vw, 520px); }
+  .toast { background: rgba(4, 22, 30, .88); border: 1px solid var(--line); padding: 10px 16px; border-radius: 12px; font-size: 14px; text-align: center; animation: pop .3s ease-out; transition: opacity .4s, transform .4s; }
+  .toast.big { font-size: 17px; font-weight: 700; border-color: var(--acc); }
+  .toast.out { opacity: 0; transform: translateY(-10px); }
+  @keyframes pop { from { opacity: 0; transform: scale(.92); } }
+  #food-sheet { position: fixed; left: 50%; bottom: -100%; transform: translateX(-50%); width: min(560px, calc(100vw - 16px)); padding: 14px; transition: bottom .3s; z-index: 5; }
+  #food-sheet.open { bottom: max(12px, env(safe-area-inset-bottom)); }
+  #food-sheet h3 { margin: 0 0 4px; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
+  #food-sheet p { margin: 0 0 10px; font-size: 12px; color: var(--sub); }
+  #food-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  .food { display: flex; gap: 8px; align-items: center; text-align: left; font-size: 13px; opacity: .55; }
+  .food.good { opacity: 1; border-color: var(--acc); }
+  .food .ic { font-size: 20px; }
+  .modal { position: fixed; inset: 0; background: rgba(2, 14, 20, .6); display: none; align-items: center; justify-content: center; z-index: 10; padding: 16px; }
+  .modal.open { display: flex; }
+  .modal .box { width: min(860px, 100%); max-height: 100%; overflow: auto; padding: 16px; background: rgba(6, 30, 40, .96); }
+  .modal h2 { margin: 0; font-size: 20px; }
+  .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .head .x { margin-left: auto; }
+  #zukan-count { color: var(--acc); font-size: 13px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .tabs button.on { background: var(--acc); color: #0b2a33; border-color: var(--acc); }
+  #zukan-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .card { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: rgba(255,255,255,.04); cursor: pointer; }
+  .card.locked { cursor: default; opacity: .5; }
+  .card .ph { aspect-ratio: 3/2; background: #0d3140; display: flex; align-items: center; justify-content: center; }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .noimg { font-size: 28px; color: var(--sub); }
+  .noimg.big { font-size: 46px; }
+  .card .ti { font-weight: 700; font-size: 14px; padding: 8px 10px 0; }
+  .card .me { font-size: 11px; color: var(--sub); padding: 2px 10px 10px; }
+  .src { grid-column: 1 / -1; font-size: 13px; line-height: 1.7; }
+  .src a { color: #8fe3ff; }
+  #detail .box { width: min(560px, 100%); }
+  #detail-img img { width: 100%; border-radius: 10px; display: block; margin-bottom: 10px; }
+  #detail-text { font-size: 15px; line-height: 1.8; }
+  #detail-text .mine { background: rgba(95, 211, 160, .12); border-left: 3px solid var(--acc); padding: 8px 10px; border-radius: 6px; font-size: 14px; }
+  #intro { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 20; background: radial-gradient(circle at 50% 40%, #11536a, #052029); padding: 16px; }
+  #intro .box { width: min(440px, 100%); padding: 24px; text-align: center; }
+  #intro h1 { margin: 0 0 6px; font-size: 26px; }
+  #intro p { color: var(--sub); line-height: 1.7; font-size: 14px; }
+  #intro input { width: 100%; font: inherit; font-size: 18px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--tx); text-align: center; margin: 8px 0 14px; }
+  #intro-go { width: 100%; padding: 12px; font-size: 17px; font-weight: 700; background: var(--acc); color: #0b2a33; border: none; }
+  #tabs { display: flex; gap: 6px; margin: -2px 0 10px; overflow-x: auto; }
+  #tabs .tab { display: flex; align-items: center; gap: 5px; padding: 5px 9px; font-size: 12px; border-radius: 99px; white-space: nowrap; }
+  #tabs .tab .tn { font-weight: 700; }
+  #tabs .tab .ta { color: var(--sub); }
+  #tabs .tab.on { background: var(--acc); border-color: var(--acc); color: #0b2a33; }
+  #tabs .tab.on .ta { color: #0b2a33; }
+  #newfish .box { width: min(440px, 100%); text-align: center; }
+  #newfish p { line-height: 1.8; font-size: 15px; }
+  #newfish input { width: 100%; font: inherit; font-size: 17px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--tx); text-align: center; margin: 4px 0 14px; }
+  .nf-btns { display: flex; gap: 8px; }
+  .nf-btns button { flex: 1; padding: 11px; font-size: 15px; font-weight: 700; }
+  #newfish-go { background: var(--acc); color: #0b2a33; border: none; }
+  .src.move { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
+  .src h3 { margin: 6px 0; font-size: 15px; }
+  .src .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  #save-code { width: 100%; height: 70px; margin: 8px 0; font: 11px/1.4 ui-monospace, monospace; background: rgba(255,255,255,.06); color: var(--tx); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+  #save-msg { color: var(--acc); font-size: 13px; }
+  #btn-reset { font-size: 12px; padding: 6px 10px; margin-top: 14px; opacity: .7; }
+  @media (max-width: 640px) {
+    #hud { padding: 10px 12px; width: calc(100vw - 110px); }
+    #len { font-size: 21px; }
+    #name { font-size: 17px; }
+    .temp { grid-template-columns: 44px 1fr 38px; }
+    #bubble { font-size: 12px; margin-top: 6px; padding: 5px 8px; }
+    #age { font-size: 12px; }
+    .size { margin: 2px 0 4px; }
+    #tank-name { display: none; }
+    .temp { margin-top: 2px; }
+    #bottom { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; padding: 7px; width: calc(100vw - 16px); }
+    #bottom .big { padding: 10px 4px; font-size: 14px; grid-column: span 4; }
+    #bottom .speedwrap { grid-column: span 6; }
+    #bottom label.auto { grid-column: span 2; flex-direction: column; gap: 2px; font-size: 10px; padding: 0; justify-content: center; }
+    #btn-view, #btn-cam { grid-column: span 2; padding: 6px 0; font-size: 18px; }
+    #bottom .lbl { display: none; }
+    #speed button { padding: 7px 6px; font-size: 12px; }
+  }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vignette"></div>
+
+<div id="hud" class="panel" hidden>
+  <div id="tabs" hidden></div>
+  <div class="top" id="hud-top"><span id="name"></span><span id="stage"></span><span class="fold" id="fold">▲</span></div>
+  <div class="more">
+  <div id="age-row"><span id="age"></span><span id="sex"></span></div>
+  <div id="trait"></div>
+  <div class="size"><span id="len"></span><span id="wt"></span></div>
+  <div id="pace"></div>
+  <div class="meters">
+    <div class="m"><span id="sat-label">おなか</span><div class="bar"><i id="m-sat"></i></div></div>
+    <div class="m"><span>水質</span><div class="bar"><i id="m-water"></i></div></div>
+    <div class="m"><span>元気</span><div class="bar"><i id="m-health"></i></div></div>
+  </div>
+  <div class="temp"><span>水温</span><input id="temp" type="range" min="4" max="28" step="1"><span id="temp-val"></span></div>
+  <div id="temp-ok"></div>
+  <div id="bubble"></div>
+  <div id="tank-name"></div>
+  </div>
+</div>
+
+<div id="ruler"><span id="ruler-label"></span><div id="ruler-bar"></div></div>
+
+<div id="bottom" class="panel" hidden>
+  <button id="btn-food" class="big">🍽 えさ</button>
+  <button id="btn-water" class="big">💧 水かえ</button>
+  <button id="btn-zukan" class="big">📘 図鑑</button>
+  <div class="speedwrap">
+    <div id="speed"><button>⏸</button><button>▶</button><button>▶▶</button><button>⏩</button><button>⏭</button></div>
+    <div id="speed-label"></div>
+  </div>
+  <label class="auto" title="成長に合った餌と水かえを自動で"><input id="auto" type="checkbox">おまかせ</label>
+  <button id="btn-view">👀<span class="lbl"> 自由</span></button>
+  <button id="btn-cam">🎥<span class="lbl"> 追いかけ</span></button>
+</div>
+
+<div id="food-sheet" class="panel">
+  <h3>えさをあげる <button id="food-close">閉じる</button></h3>
+  <p>緑のわくの餌が今の大きさで食べられる餌。ほかの餌は食べ残しになって水が汚れます。</p>
+  <div id="food-list"></div>
+</div>
+
+<div id="toasts"></div>
+
+<div id="zukan" class="modal"><div class="box panel">
+  <div class="head"><h2>📘 チョウザメ図鑑</h2><span id="zukan-count"></span><button id="zukan-close" class="x">閉じる</button></div>
+  <div class="tabs"><button data-tab="grow">成長の記録</button><button data-tab="food">えさ</button><button data-tab="src">参考にした資料</button></div>
+  <div id="zukan-body"></div>
+</div></div>
+
+<div id="detail" class="modal"><div class="box panel">
+  <div class="head"><h2 id="detail-title"></h2><button id="detail-close" class="x">閉じる</button></div>
+  <div id="detail-img"></div>
+  <div id="detail-text"></div>
+</div></div>
+
+<div id="newfish" class="modal open" hidden><div class="box panel">
+  <div class="head"><h2>🏠 水槽があいたよ</h2></div>
+  <p id="newfish-text"></p>
+  <input id="newfish-name" placeholder="新しい子の名前" maxlength="12">
+  <div class="nf-btns"><button id="newfish-go">🥚 卵を育てる</button><button id="newfish-no">今はいい</button></div>
+</div></div>
+
+<div id="intro" hidden><div class="box panel">
+  <h1>🥚 チョウザメを育てよう</h1>
+  <p>シベリアチョウザメの受精卵からスタート。<br>ふ化 → 卵黄で成長 → はじめての餌 → ヒゲ・骨板（模様）→ おとなへ。<br>成長するたびに図鑑に記録されます。</p>
+  <input id="intro-name" placeholder="名前（例：チョウ太）" maxlength="12">
+  <button id="intro-go">卵を受け取る</button>
+</div></div>
+
+<script type="module" src="./js/main.js"></script>
+</body>
+</html>

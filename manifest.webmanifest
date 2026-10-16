@@ -1,0 +1,17 @@
+{
+  "name": "チョウザメ育成",
+  "short_name": "チョウザメ",
+  "description": "卵から育てるチョウザメ育成ゲーム。成長すると図鑑が埋まる。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b3644",
+  "theme_color": "#0b3644",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
