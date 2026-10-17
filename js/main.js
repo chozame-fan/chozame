@@ -201,7 +201,7 @@ function updateHand(dt) {
   }
   // 魚が狙う場所：指パクは指先、腕ガブは手のひらのまん中（手ごとくわえる）
   handTipWorld(HF.tip);
-  HF.target.copy(HF.tip); HF.target.y += HF.gabu ? 17 * (HF.hand.userData.scale || 1) : 2.2; // 腕ガブは手首まで、指パクは指先2cmほど
+  HF.target.copy(HF.tip); HF.target.y += HF.gabu ? 17 * (HF.hand.userData.scale || 1) : 0.5; // 腕ガブは手首まで、指パクは指先2cmほど
 }
 function biteHand() {
   HF.phase = 'bite'; HF.t = 0; F.holdPos = null;
@@ -353,13 +353,14 @@ function holdHand(dt, L) {
   const now = performance.now() / 1000, t = HF.t;
   // 体をひねって口（お腹側）を上の手に向ける。腕ガブはほぼ仰向け、指パクは横向きくらい
   // 腕ガブ：頭を水面に向けて立て、腕を体の奥までくわえこむ（首をふる）。指パク：頭を上げて指先に吸いつく
-  const rollT = HF.gabu ? Math.sin(now * 6) * 0.35 : (Math.PI * 0.95 + Math.sin(now * 3) * 0.08) * (F.yawSign || 1);
-  const pitchT = HF.gabu ? 1.5 : 0.12;
+  // 指パクは体を裏返さず、頭を少し上げて鼻だけぐっと反らせ、下の口で指先を吸う
+  const rollT = HF.gabu ? Math.sin(now * 6) * 0.35 : 0;
+  const pitchT = HF.gabu ? 1.5 : 0.5;
   F.roll = (F.roll || 0) + (rollT - (F.roll || 0)) * Math.min(1, dt * 3.5);
   F.pitch += (pitchT - F.pitch) * Math.min(1, dt * 3);
   // 口の場所が手（腕ガブは手首の近くまで）に重なるように体を動かす
   const juv = 1 - Math.min(1, Math.max(0, (L - 30) / 60));
-  const mouthLocal = new THREE.Vector3(0.5 - (0.15 + 0.04 * juv), HF.gabu ? 0 : -0.03, 0);
+  const mouthLocal = new THREE.Vector3(0.5 - (0.15 + 0.04 * juv), HF.gabu ? 0 : -0.04, 0);
   const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(F.roll, F.yaw, F.pitch, 'YZX'));
   const groupWant = HF.target.clone().sub(mouthLocal.multiplyScalar(L).applyQuaternion(q));
   F.holdPos = (F.holdPos || fish.group.position.clone()).lerp(groupWant, Math.min(1, dt * 5));
@@ -370,8 +371,9 @@ function holdHand(dt, L) {
   const m = t < 0.3 ? 1.2 : HF.gabu ? 1.1 + 0.1 * Math.sin(t * 5) : 0.55 + 0.18 * Math.sin(t * 4.5);
   F.mouth += (m - F.mouth) * Math.min(1, dt * 10);
   fish.setMouth(F.mouth);
-  F.snout = (F.snout || 0) + (0.4 - (F.snout || 0)) * Math.min(1, dt * 4);
-  fish.setExpr(F.snout + 0.15 * Math.sin(t * 4), 0, 0.4, Math.sin(now * 3) * 0.2);
+  const snoutT = HF.gabu ? 0.4 : 1.7 + 0.25 * Math.sin(t * 4.5); // 指パク中は鼻を大きく反らせ、モグモグに合わせて動く
+  F.snout = (F.snout || 0) + (snoutT - (F.snout || 0)) * Math.min(1, dt * 5);
+  fish.setExpr(F.snout, 0, HF.gabu ? 0.4 : 0.8, Math.sin(now * 3) * 0.2);
   F.phase += dt * (HF.gabu ? 6 : 4);
   F.turn *= 0.9;
   fish.setSwim(F.phase, HF.gabu ? 0.045 : 0.025, F.turn, 0.25 * Math.sin(now * 2));
