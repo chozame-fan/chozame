@@ -92,6 +92,7 @@ export function playMemoryMovie({ name, entries, finale, onDone, heading, subhea
   let front = A, back = B;
   const show = (e, i) => {
     back.style.backgroundImage = e.img ? `url(${e.img})` : 'none';
+    back.style.setProperty('--img', e.img ? `url(${e.img})` : 'none'); // 縦画面の、ぼかした背景用
     back.classList.toggle('noimg', !e.img); back.dataset.emoji = e.emoji || '🐟';
     // 写真ごとに、ゆっくり寄る／引く方向を変える
     const dir = i % 2 ? 1 : -1;
