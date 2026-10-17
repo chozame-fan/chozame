@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Fish, lookFor, makeTraits } from './fish.js';
 import { Tank, makeEgg, makeFood, makeEmbryo } from './world.js';
 import { Companions } from './others.js';
-import { makeHand } from './hand.js';
+import { makeHand, handClip } from './hand.js';
 import { WaterAudio } from './audio.js';
 import {
   HATCH_DAYS, expectedLength, weightOf, fmtWeight, fmtLength, fmtAge, tankFor,
@@ -171,16 +171,18 @@ function handFeed() {
 }
 function handTipWorld(out) { return HF.hand.localToWorld(out.copy(HF.hand.userData.tip)); }
 function updateHand(dt) {
-  if (!HF.active) return;
+  if (!HF.active) { handClip.uClipOn.value = 0; return; }
+  fish.group.updateMatrixWorld(); handClip.uFishInv.value.copy(fish.group.matrixWorld).invert();
+  handClip.uClipOn.value = HF.phase === 'bite' || (HF.phase === 'leave' && HF.t < 0.6) ? 1 : 0;
   HF.t += dt;
   const h = HF.hand, tipY = T.h - HF.depth;
-  const restY = tipY + 17.3; // 指先が tipY に来る手首の高さ
+  const hs = h.userData.scale || 1, restY = tipY - h.userData.tip.y; // 指先が tipY に来る手首の高さ
   // 手のひらをカメラに向ける
-  h.rotation.y = Math.atan2(camera.position.x - h.position.x, camera.position.z - h.position.z);
+  h.rotation.y = Math.atan2(camera.position.x - h.position.x, camera.position.z - h.position.z) - 0.95; // 親指側から斜めに見える向き（指の形が分かる）
   if (HF.phase === 'enter') {
     const k = Math.min(1, HF.t / 1.4), e = 1 - (1 - k) ** 3;
     h.position.set(HF.base.x, restY + 40 * (1 - e), HF.base.z);
-    if (!HF.splashed && h.position.y - 17.3 < T.h) { HF.splashed = true; audio.splash(HF.gabu); }
+    if (!HF.splashed && h.position.y + h.userData.tip.y < T.h) { HF.splashed = true; audio.splash(HF.gabu); }
     if (k >= 1) { HF.phase = 'wait'; HF.t = 0; }
   } else if (HF.phase === 'wait') {
     h.position.set(HF.base.x + Math.sin(HF.t * 1.3) * 0.6, restY + Math.sin(HF.t * 2.1) * 0.5, HF.base.z);
@@ -199,7 +201,7 @@ function updateHand(dt) {
   }
   // 魚が狙う場所：指パクは指先、腕ガブは手のひらのまん中（手ごとくわえる）
   handTipWorld(HF.tip);
-  HF.target.copy(HF.tip); if (HF.gabu) HF.target.y += 17; // 腕ガブは手首まで
+  HF.target.copy(HF.tip); HF.target.y += HF.gabu ? 17 * (HF.hand.userData.scale || 1) : 2.2; // 腕ガブは手首まで、指パクは指先2cmほど
 }
 function biteHand() {
   HF.phase = 'bite'; HF.t = 0; F.holdPos = null;
@@ -351,13 +353,13 @@ function holdHand(dt, L) {
   const now = performance.now() / 1000, t = HF.t;
   // 体をひねって口（お腹側）を上の手に向ける。腕ガブはほぼ仰向け、指パクは横向きくらい
   // 腕ガブ：頭を水面に向けて立て、腕を体の奥までくわえこむ（首をふる）。指パク：頭を上げて指先に吸いつく
-  const rollT = HF.gabu ? Math.sin(now * 6) * 0.35 : 0;
-  const pitchT = HF.gabu ? 1.5 : 0.7;
+  const rollT = HF.gabu ? Math.sin(now * 6) * 0.35 : (Math.PI * 0.95 + Math.sin(now * 3) * 0.08) * (F.yawSign || 1);
+  const pitchT = HF.gabu ? 1.5 : 0.12;
   F.roll = (F.roll || 0) + (rollT - (F.roll || 0)) * Math.min(1, dt * 3.5);
   F.pitch += (pitchT - F.pitch) * Math.min(1, dt * 3);
   // 口の場所が手（腕ガブは手首の近くまで）に重なるように体を動かす
   const juv = 1 - Math.min(1, Math.max(0, (L - 30) / 60));
-  const mouthLocal = new THREE.Vector3(0.5 - (0.15 + 0.04 * juv), HF.gabu ? 0 : -0.035, 0);
+  const mouthLocal = new THREE.Vector3(0.5 - (0.15 + 0.04 * juv), HF.gabu ? 0 : -0.03, 0);
   const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(F.roll, F.yaw, F.pitch, 'YZX'));
   const groupWant = HF.target.clone().sub(mouthLocal.multiplyScalar(L).applyQuaternion(q));
   F.holdPos = (F.holdPos || fish.group.position.clone()).lerp(groupWant, Math.min(1, dt * 5));
