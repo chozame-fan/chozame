@@ -124,6 +124,17 @@
   .src .row { display: flex; gap: 8px; flex-wrap: wrap; }
   #save-code { width: 100%; height: 70px; margin: 8px 0; font: 11px/1.4 ui-monospace, monospace; background: rgba(255,255,255,.06); color: var(--tx); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
   #save-msg { color: var(--acc); font-size: 13px; }
+  #btn-release { width: 100%; margin-top: 8px; padding: 9px; font-weight: 700; background: linear-gradient(90deg, #1f6f9a, #2a93b8); border-color: #58b6d6; }
+  #release { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+  #release-fade { position: absolute; inset: 0; background: #000; opacity: 1; transition: background .3s; }
+  #release-msg { position: absolute; left: 0; right: 0; top: 38%; text-align: center; padding: 0 16px; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: clamp(26px, 6vw, 48px); letter-spacing: .12em; color: #fff; text-shadow: 0 2px 18px rgba(0,30,50,.7); opacity: 0; transform: translateY(8px); transition: opacity 1.2s, transform 1.2s; }
+  #release-msg.show { opacity: 1; transform: none; }
+  #release-skip { position: absolute; right: 16px; bottom: max(16px, env(safe-area-inset-bottom)); pointer-events: auto; background: rgba(0,0,0,.35); font-size: 13px; }
+  #release-ask .box, #release-done .box { width: min(440px, 100%); text-align: center; }
+  #release-ask p, #release-done p { line-height: 1.8; font-size: 15px; }
+  #release-done-img img { width: 100%; border-radius: 10px; display: block; }
+  #release-new-name { width: 100%; font: inherit; font-size: 17px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--tx); text-align: center; margin: 4px 0 12px; }
+  #release-yes, #release-new { background: var(--acc); color: #0b2a33; border: none; }
   #btn-reset { font-size: 12px; padding: 6px 10px; margin-top: 14px; opacity: .7; }
   @media (max-width: 640px) {
     #hud { padding: 10px 12px; width: calc(100vw - 110px); }
@@ -167,6 +178,7 @@
   <div id="temp-ok"></div>
   <div id="bubble"></div>
   <div id="tank-name"></div>
+  <button id="btn-release" hidden>🌊 海へ放流する</button>
   </div>
 </div>
 
@@ -195,7 +207,7 @@
 
 <div id="zukan" class="modal"><div class="box panel">
   <div class="head"><h2>📘 チョウザメ図鑑</h2><span id="zukan-count"></span><button id="zukan-close" class="x">閉じる</button></div>
-  <div class="tabs"><button data-tab="grow">成長の記録</button><button data-tab="food">えさ</button><button data-tab="src">参考にした資料</button></div>
+  <div class="tabs"><button data-tab="grow">成長の記録</button><button data-tab="food">えさ</button><button data-tab="memory">思い出</button><button data-tab="src">参考にした資料</button></div>
   <div id="zukan-body"></div>
 </div></div>
 
@@ -210,6 +222,28 @@
   <p id="newfish-text"></p>
   <input id="newfish-name" placeholder="新しい子の名前" maxlength="12">
   <div class="nf-btns"><button id="newfish-go">🥚 卵を育てる</button><button id="newfish-no">今はいい</button></div>
+</div></div>
+
+<div id="release-ask" class="modal open" hidden><div class="box panel">
+  <div class="head"><h2>🌊 海へ放流</h2></div>
+  <p id="release-ask-text"></p>
+  <div class="nf-btns"><button id="release-yes">🌊 放流する</button><button id="release-no">やめる</button></div>
+</div></div>
+
+<div id="release" hidden>
+  <div id="release-fade"></div>
+  <div id="release-msg"></div>
+  <button id="release-skip">スキップ ▶▶</button>
+  <div id="release-card" hidden></div>
+</div>
+
+<div id="release-done" class="modal open" hidden><div class="box panel">
+  <div class="head"><h2>🌊 いってらっしゃい</h2></div>
+  <div id="release-done-img"></div>
+  <p id="release-done-text"></p>
+  <p id="release-done-q"></p>
+  <input id="release-new-name" placeholder="新しい子の名前" maxlength="12">
+  <div class="nf-btns"><button id="release-new">🥚 卵を育てる</button><button id="release-close">閉じる</button></div>
 </div></div>
 
 <div id="intro" hidden><div class="box panel">

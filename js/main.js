@@ -3,6 +3,7 @@ import { Fish, lookFor, makeTraits } from './fish.js';
 import { Tank, makeEgg, makeFood, makeEmbryo } from './world.js';
 import { Companions } from './others.js';
 import { WaterAudio } from './audio.js';
+import { playRelease } from './release.js';
 import {
   HATCH_DAYS, expectedLength, weightOf, fmtWeight, fmtLength, fmtAge, tankFor,
   FOODS, foodById, canEat, bestFood, ZUKAN, SOURCES, TANKS,
@@ -60,6 +61,8 @@ scene.add(sun, sun.target);
 const tank = new Tank(scene);
 const others = new Companions(scene);
 const audio = new WaterAudio();
+const RELEASE_MIN = 60; // 全長(cm)：これより大きくなったら海へ放流できる
+let releasing = false;
 const fish = new Fish(); scene.add(fish.group);
 const egg = makeEgg(); scene.add(egg);
 let embryo = null, embryoK = -1;
@@ -556,6 +559,7 @@ function traitText(t) {
 function updateHUD() {
   const L = len();
   $('#name').textContent = S.name;
+  $('#btn-release').hidden = !(S.dev >= 0 && len() >= RELEASE_MIN);
   $('#trait').textContent = traitText(ensureTraits(S));
   $('#stage').textContent = stageName();
   $('#age').textContent = fmtAge(S.age);
@@ -624,6 +628,16 @@ function openZukan(tab = 'grow') {
       if (r) card.onclick = () => showDetail(f.name, null, `<p>${f.zukan}</p><p class="mine">食べられる目安：${f.id === 'float' ? 'ほぼ食べない' : `全長 ${f.minL}cm〜${f.maxL > 900 ? '' : f.maxL + 'cm'}`}</p>`);
       body.appendChild(card);
     }
+  } else if (tab === 'memory') {
+    const list = R.released || [];
+    if (!list.length) body.innerHTML = `<div class="src"><p>まだ放流した子はいません。全長${RELEASE_MIN}cmを過ぎると、情報欄の「🌊 海へ放流する」から海へ送り出せます。</p></div>`;
+    for (const r of [...list].reverse()) {
+      const card = document.createElement('div'); card.className = 'card';
+      const d = new Date(r.date);
+      card.innerHTML = `<div class="ph">${r.img ? `<img src="${r.img}" alt="">` : '<div class="noimg">🌊</div>'}</div><div class="ti">${r.name}</div><div class="me">${fmtAge(r.age)}・${fmtLength(r.len)}<br>${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} 放流</div>`;
+      card.onclick = () => showDetail(`${r.name}の思い出`, r.img, `<p>${fmtAge(r.age)}・全長 ${fmtLength(r.len)}・${fmtWeight(r.w)}${r.sex ? `・${r.sex}` : ''}で、海へ放流しました。</p><p class="mine">図鑑の記録 ${r.zukan} 個。大きく育ってね。元気でね！</p>`);
+      body.appendChild(card);
+    }
   } else {
     body.innerHTML = `<div class="src"><p>このゲームの数字は、シベリアチョウザメを中心に下の資料を参考にした<b>目安</b>です。チョウザメは種類・水温・飼い方で育ち方が大きく変わります。成長の数字（1歳〜10歳の全長）は養殖の一般的な目安をもとにゲーム用に決めたものです。</p><ul>${SOURCES.map(([t, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${t}</a></li>`).join('')}</ul></div>
       <div class="src move">
@@ -646,6 +660,11 @@ function showDetail(title, img, html) {
 
 // ---------------- はじまり ----------------
 function wireUI() {
+  $('#btn-release').onclick = (e) => { e.stopPropagation(); askRelease(); };
+  $('#release-yes').onclick = () => startRelease();
+  $('#release-no').onclick = () => { $('#release-ask').hidden = true; };
+  $('#release-new').onclick = () => afterRelease($('#release-new-name').value || ['チョウ子', 'チョウ吉', 'チョウ美', 'チョウ丸'][(R.released?.length || 0) % 4]);
+  $('#release-close').onclick = () => afterRelease(null);
   // 水の音：画面を触った後でないと鳴らせないので、ボタンで始める
   const sndOn = () => { try { return localStorage.getItem('chozame-sound') !== '0'; } catch { return true; } };
   const setSnd = (on) => { if (on) audio.start(); else audio.stop(); $('#snd').textContent = on ? '🔊 水の音 ON' : '🔇 水の音 OFF'; $('#snd').classList.toggle('on', on); try { localStorage.setItem('chozame-sound', on ? '1' : '0'); } catch {} };
@@ -728,6 +747,59 @@ function start() {
   starting = false;
 }
 
+// ---------------- 海へ放流 ----------------
+function askRelease() {
+  $('#release-ask-text').innerHTML = `<b>${S.name}</b>（${fmtAge(S.age)}・全長 ${fmtLength(len())}）を海へ放流しますか？<br>放流すると、この子はもう水槽には戻りません。図鑑の「思い出」に記録が残ります。`;
+  $('#release-ask').hidden = false;
+}
+function startRelease() {
+  $('#release-ask').hidden = true;
+  $('#zukan').classList.remove('open'); $('#food-sheet').classList.remove('open');
+  releasing = true;
+  $('#hud').hidden = true; $('#bottom').hidden = true; $('#ruler').hidden = true; $('#toasts').innerHTML = ''; toastQ = [];
+  for (const f of foods.splice(0)) scene.remove(f.mesh);
+  const st = S, L = len();
+  const rec = { name: st.name, age: st.age, len: L, w: weightOf(L), sex: st.sexKnown ? st.sex : null, date: Date.now(), img: null, zukan: Object.keys(st.zukan).length };
+  playRelease({
+    renderer, st, len: L, look: lookFor(st.dev, L), traits: ensureTraits(st), audio,
+    onSnap: (cv) => {
+      const c = document.createElement('canvas'); c.width = 360; c.height = 240;
+      const r = Math.min(cv.width / 360, cv.height / 240);
+      c.getContext('2d').drawImage(cv, (cv.width - 360 * r) / 2, (cv.height - 240 * r) / 2, 360 * r, 240 * r, 0, 0, 360, 240);
+      rec.img = c.toDataURL('image/jpeg', 0.8);
+    },
+    onDone: () => {
+      (R.released ||= []).push(rec);
+      R.list.splice(R.list.indexOf(st), 1);
+      save();
+      releasing = false; resize();
+      showReleaseDone(rec);
+    },
+  });
+}
+function showReleaseDone(rec) {
+  $('#release-done-img').innerHTML = rec.img ? `<img src="${rec.img}" alt="">` : '';
+  $('#release-done-text').innerHTML = `<b>${rec.name}</b>を海へ放流しました。<br>${fmtAge(rec.age)}・全長 ${fmtLength(rec.len)}・${fmtWeight(rec.w)}<br>大きく育ってね。元気でね！`;
+  const room = R.list.length < MAX_FISH;
+  $('#release-new').hidden = !room;
+  $('#release-new-name').hidden = !room;
+  $('#release-new-name').value = '';
+  $('#release-close').hidden = R.list.length === 0; // ほかに子がいなければ、新しい卵を育てる
+  $('#release-done-q').textContent = R.list.length === 0 ? '水槽があいたよ。新しい卵を育てよう！' : room ? '水槽があいたよ。もう1匹、卵から育てる？' : '';
+  $('#release-done').hidden = false;
+}
+function afterRelease(newName) {
+  $('#release-done').hidden = true;
+  $('#hud').hidden = false; $('#bottom').hidden = false; $('#ruler').hidden = false;
+  if (newName) {
+    const ns = newState(newName.slice(0, 12)); ns.autofeed = R.list[0]?.autofeed ?? false;
+    R.list.push(ns); save();
+    R.active = -1; switchTo(R.list.length - 1);
+    toast(`🥚 ${ns.name}の卵を受け取った！`);
+  } else { R.active = -1; switchTo(0); }
+  tabsKey = ''; renderTabs();
+}
+
 // ---------------- 何匹も育てる ----------------
 // 引っ越しの時、あいた水槽でもう1匹育てるか聞く
 function offerNewFish(st, newTank) {
@@ -746,7 +818,8 @@ function addFish(name) {
 // 見る子を切りかえる
 function switchTo(i) {
   if (i === R.active && S === R.list[i]) return;
-  if (pendingSnaps.length) { (S.snapLater ||= []).push(...pendingSnaps); pendingSnaps = []; }
+  if (S && !R.list.includes(S)) pendingSnaps = []; // 放流した子の撮り残しは捨てる
+  if (pendingSnaps.length && R.list.includes(S)) { (S.snapLater ||= []).push(...pendingSnaps); pendingSnaps = []; }
   R.active = i; S = R.list[i];
   for (const f of foods.splice(0)) scene.remove(f.mesh);
   T = null; fish.key = ''; F.mode = null; F.yawV = 0; F.speed = 0;
@@ -802,6 +875,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 function frame(dt) {
+  if (releasing) return; // 放流の映像を流している間は、水槽は止める
   time += dt;
   if (S && T) {
     const paused = document.getElementById('zukan').classList.contains('open') || !document.getElementById('newfish').hidden;
