@@ -196,6 +196,7 @@ function updateFish(dt) {
   else if (food) vWant = Math.min(L * 1.1, 80) * (best < L * 0.8 ? 0.45 : 1);
   else vWant = Math.min(L * MODES[F.mode].v * (0.85 + 0.3 * Math.sin(now * 0.7 + 1)), F.mode === 'burst' ? 140 : 50);
   if (weak) vWant *= 0.4;
+  if (pet.t > 0) vWant *= 0.15; // なでられている間は、じっとしている
   vWant = Math.max(vWant, 0.15);
   F.speed += (vWant - F.speed) * Math.min(1, dt * (burst ? 2.5 : 0.9));
   const fw = new THREE.Vector3(Math.cos(F.yaw) * Math.cos(F.pitch), Math.sin(F.pitch), -Math.sin(F.yaw) * Math.cos(F.pitch));
@@ -207,7 +208,9 @@ function updateFish(dt) {
   // 体のひねり：曲がる時に少し傾く＋ときどき大きくひねる
   F.rollT = (F.rollT || 0) - dt;
   const rollWant = (F.rollT > 0 ? F.rollTarget : 0) + clamp(-yawRate * 0.25, -0.5, 0.5);
-  F.roll = (F.roll || 0) + (rollWant - (F.roll || 0)) * Math.min(1, dt * 2.5);
+  pet.t = Math.max(0, pet.t - dt);
+  const happy = pet.t > 0 ? Math.min(1, pet.t) : 0;
+  F.roll = (F.roll || 0) + (rollWant + happy * 0.35 * Math.sin(now * 4) - (F.roll || 0)) * Math.min(1, dt * 2.5); // うれしくて体をゆらす
 
   const rel0 = F.speed / L;
   // 口パク：餌が近い・水面を見上げている時はパクパク、食べた直後はモグモグ
@@ -235,6 +238,7 @@ function updateFish(dt) {
   F.bigT = (F.bigT ?? 4) - dt;
   if (F.bigT < 0) { F.bigT = (5 + Math.random() * 6) / (S.traits?.curious ?? 1); F.bigHold = 0.8 + Math.random() * 0.9; }
   if ((F.bigHold || 0) > 0) { F.bigHold -= dt; snoutWant = Math.max(snoutWant, 1.6 + 0.2 * Math.sin(now * 3)); }
+  if (happy) snoutWant = Math.max(snoutWant, 0.5 + 0.3 * Math.sin(now * 5)); // 鼻を上げてごきげん
   F.snout = (F.snout || 0) + (snoutWant - (F.snout || 0)) * Math.min(1, dt * 4);
   // ヒクヒク：鼻先を小刻みに速く動かす。3〜6回続けて少し休む。餌が近い時はもっとよくヒクヒクする
   F.sniffT = (F.sniffT ?? 1) - dt;
@@ -373,6 +377,8 @@ function sim(gdt, bg = false) {
     if (feeding && S.satiety <= 0) dh = -25;
     if (S.water < 35) dh = Math.min(dh, -(35 - S.water) * 0.8);
     if (S.temp > 26 || S.temp < 6) dh = -30;
+    S.aff = Math.max(0, (S.aff || 0) - gdt * 1.5);
+    if (dh > 0) dh *= 1 + (S.aff || 0) / 100; // なかよしだと元気が回復しやすい
     S.health += gdt * dh;
     // 自動給餌
     if (S.autofeed && feeding && S.satiety < 40 && (bg || !foods.some(f => f.edible))) {
@@ -449,17 +455,54 @@ const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 {
   let drag = null; const pts = new Map(); let pinch0 = 0, zoom0 = 1;
   const el = renderer.domElement;
-  el.addEventListener('pointerdown', (e) => { pts.set(e.pointerId, [e.clientX, e.clientY]); drag = [e.clientX, e.clientY]; el.setPointerCapture(e.pointerId); if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); zoom0 = cam.zoom; } });
+  el.addEventListener('pointerdown', (e) => { pts.set(e.pointerId, [e.clientX, e.clientY]); drag = [e.clientX, e.clientY];
+    if (pts.size === 1 && hitFish(e.clientX, e.clientY)) { pet.on = true; pet.last = [e.clientX, e.clientY]; drag = null; } el.setPointerCapture(e.pointerId); if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); zoom0 = cam.zoom; } });
   el.addEventListener('pointermove', (e) => {
     if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); cam.zoom = clamp(zoom0 * pinch0 / d, 0.35, 5); return; }
+    if (pet.on) { petMove(e.clientX, e.clientY); return; }
     if (!drag) return;
     cam.az -= (e.clientX - drag[0]) * 0.006; cam.el = clamp(cam.el + (e.clientY - drag[1]) * 0.005, -0.7, 1.45); drag = [e.clientX, e.clientY]; cam.lastTouch = performance.now() / 1000;
   });
-  const up = (e) => { pts.delete(e.pointerId); if (!pts.size) drag = null; };
+  const up = (e) => { pts.delete(e.pointerId); if (!pts.size) { drag = null; pet.on = false; } };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   el.addEventListener('wheel', (e) => { e.preventDefault(); cam.zoom = clamp(cam.zoom * Math.exp(e.deltaY * 0.001), 0.35, 5); }, { passive: false });
 }
+// ---------------- なでる ----------------
+const pet = { on: false, last: null, dist: 0, heartDist: 0, t: 0, todayGain: 0, day: -1 };
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+function hitFish(x, y) {
+  if (!S || S.dev < 0 || releasing || !fish.group.visible) return false;
+  ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  fish.group.updateMatrixWorld();
+  return ray.intersectObject(fish.group, true).length > 0;
+}
+function petMove(x, y) {
+  const d = Math.hypot(x - pet.last[0], y - pet.last[1]); pet.last = [x, y];
+  if (d < 1) return;
+  if (!hitFish(x, y)) return; // 魚からはずれたら、なでていない
+  pet.t = 1.6; pet.dist += d; pet.heartDist += d;
+  if (pet.heartDist > 55) { pet.heartDist = 0; spawnHeart(x, y); audio.chime?.(); }
+  // なでた分だけ、なかよし度と元気が上がる（1日に上がる量には上限）
+  const day = Math.floor(S.age);
+  if (day !== pet.day) { pet.day = day; pet.todayGain = 0; }
+  if (pet.dist > 120) {
+    pet.dist = 0;
+    if (pet.todayGain < 12) { pet.todayGain += 1; S.aff = Math.min(100, (S.aff || 0) + 1); }
+    S.health = Math.min(100, S.health + 1.5);
+    if (Math.random() < 0.08) toast(['😊 ' + S.name + 'が、うれしそう！', '💕 なでなで、気持ちいいね', '✨ ' + S.name + 'が元気になった'][Math.floor(Math.random() * 3)]);
+  }
+}
+function spawnHeart(x, y) {
+  const h = document.createElement('div'); h.className = 'heart';
+  h.textContent = ['💗', '💕', '💖', '❤️'][Math.floor(Math.random() * 4)];
+  h.style.left = `${x + (Math.random() - 0.5) * 30}px`; h.style.top = `${y - 10}px`;
+  h.style.setProperty('--dx', `${(Math.random() - 0.5) * 60}px`);
+  document.body.appendChild(h);
+  setTimeout(() => h.remove(), 1300);
+}
+
 function updateCamera(dt) {
   const L = len();
   let want, d;
@@ -567,6 +610,7 @@ function updateHUD() {
   $('#wt').textContent = S.dev < 0 ? '' : fmtWeight(weightOf(L));
   $('#sex').textContent = S.sexKnown ? (S.sex === 'メス' ? '♀ メス' : '♂ オス') : '性別 ？';
   meter('#m-sat', S.dev < 9 ? 100 : S.satiety); meter('#m-water', S.water); meter('#m-health', S.health);
+  { const el = $('#m-aff'); el.style.width = `${clamp(S.aff || 0, 0, 100)}%`; el.style.background = '#ff8fb3'; }
   $('#sat-label').textContent = S.dev < 9 ? '卵黄' : 'おなか';
   $('#temp-val').textContent = `${S.temp}℃`;
   $('#temp-ok').textContent = S.dev < 9 ? '適温 16〜19℃' : '適温 18〜22℃';

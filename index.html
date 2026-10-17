@@ -40,7 +40,9 @@
   #len { font-size: 26px; font-weight: 800; letter-spacing: .02em; }
   #wt { color: var(--sub); }
   #pace { font-size: 11px; color: var(--warn); min-height: 0; }
-  .meters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .meters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .heart { position: fixed; z-index: 15; font-size: 26px; pointer-events: none; transform: translate(-50%, -50%); animation: heartUp 1.3s ease-out forwards; }
+  @keyframes heartUp { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), -260%) scale(.9); } }
   .m { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--sub); margin: 2px 0; }
   .m .bar { height: 7px; background: rgba(255,255,255,.1); border-radius: 9px; overflow: hidden; }
   .m .bar i { display: block; height: 100%; width: 50%; border-radius: 9px; transition: width .4s; }
@@ -173,6 +175,7 @@
     <div class="m"><span id="sat-label">おなか</span><div class="bar"><i id="m-sat"></i></div></div>
     <div class="m"><span>水質</span><div class="bar"><i id="m-water"></i></div></div>
     <div class="m"><span>元気</span><div class="bar"><i id="m-health"></i></div></div>
+    <div class="m"><span>なかよし</span><div class="bar"><i id="m-aff"></i></div></div>
   </div>
   <div class="temp"><span>水温</span><input id="temp" type="range" min="4" max="28" step="1"><span id="temp-val"></span></div>
   <div id="temp-ok"></div>

@@ -107,6 +107,16 @@ export class WaterAudio {
       o.connect(g); g.connect(p); p.connect(this.master); o.start(t); o.stop(t + 0.1);
     }
   }
+  // なでた時のきらっとした音
+  chime() {
+    if (!this.ctx || !this.on) return;
+    const ctx = this.ctx, t = ctx.currentTime, base = 880 * Math.pow(2, Math.floor(Math.random() * 5) / 12);
+    for (const [i, m] of [[0, 1], [1, 1.5]]) {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine';
+      o.frequency.value = base * m; this.env(g, t + i * 0.07, 0.005, 0.05, 0.35);
+      o.connect(g); g.connect(this.master); o.start(t + i * 0.07); o.stop(t + i * 0.07 + 0.45);
+    }
+  }
   // 手を水に入れる：ちゃぽん
   splash(big = false) {
     if (!this.ctx || !this.on) return;
