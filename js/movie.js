@@ -18,7 +18,9 @@ const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
 class Music {
   constructor() {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {} // iPhoneの消音スイッチでも鳴らす
     const ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    ctx.resume?.();
     this.out = ctx.createGain(); this.out.gain.value = 0.0001; this.out.connect(ctx.destination);
     // 残響（ホールのような響き）
     const len = ctx.sampleRate * 3.2, ir = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -78,8 +80,8 @@ class Music {
 export function playMemoryMovie({ name, entries, finale, onDone, heading, subheading, lines }) {
   const root = document.getElementById('movie');
   const A = root.querySelector('.m-img.a'), B = root.querySelector('.m-img.b');
-  const cap = root.querySelector('.m-cap'), title = root.querySelector('.m-title'), end = root.querySelector('.m-end');
-  root.hidden = false; end.hidden = true; cap.className = 'm-cap'; title.className = 'm-title';
+  const line = root.querySelector('.m-line'), cap = root.querySelector('.m-cap'), title = root.querySelector('.m-title'), end = root.querySelector('.m-end');
+  root.hidden = false; end.hidden = true; cap.className = 'm-cap'; title.className = 'm-title'; root.querySelector('.m-line').className = 'm-line';
   const PER = 5.2, INTRO = 5.5, OUTRO = 16;
   const total = INTRO + entries.length * PER + OUTRO;
   let music = null;
@@ -99,7 +101,8 @@ export function playMemoryMovie({ name, entries, finale, onDone, heading, subhea
     back.style.opacity = 1; back.style.transform = `scale(1.14) translate(${dir * 1.5}%, -1%)`;
     front.style.opacity = 0;
     [front, back] = [back, front];
-    cap.className = 'm-cap';
+    cap.className = 'm-cap'; line.className = 'm-line';
+    if (e.line) { setTimeout(() => { line.textContent = e.line; line.className = 'm-line show'; }, 900); setTimeout(() => { line.className = 'm-line'; }, (PER - 0.6) * 1000); }
     setTimeout(() => {
       cap.innerHTML = `<div class="m-t">${e.title}</div><div class="m-s">${e.sub}</div>${e.note ? `<div class="m-n">${e.note}</div>` : ''}`;
       cap.className = 'm-cap show';
@@ -114,7 +117,7 @@ export function playMemoryMovie({ name, entries, finale, onDone, heading, subhea
   entries.forEach((e, i) => at(INTRO + i * PER, () => show(e, i)));
   // おわり
   const tEnd = INTRO + entries.length * PER;
-  at(tEnd, () => { cap.className = 'm-cap'; A.style.opacity = B.style.opacity = 0; });
+  at(tEnd, () => { cap.className = 'm-cap'; line.className = 'm-line'; A.style.opacity = B.style.opacity = 0; });
   at(tEnd + 1.6, () => {
     end.hidden = false;
     const [ln1, ln2] = lines || ['よくここまで育ったね。', `ありがとう、${name}。`];

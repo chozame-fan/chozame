@@ -429,13 +429,21 @@ function takeSnap() {
   const L = len();
   let tgt, d, side;
   if (S.dev < 0) { tgt = egg.position.clone(); d = 0.9; side = new THREE.Vector3(0.6, 0.45, 0.8).normalize(); }
-  else { tgt = F.pos.clone(); d = L * 1.9 + 0.5; side = new THREE.Vector3(Math.sin(F.yaw - 0.35), 0.18, Math.cos(F.yaw - 0.35)).normalize(); }
+  else {
+    const fw = new THREE.Vector3(Math.cos(F.yaw), 0, -Math.sin(F.yaw));
+    tgt = F.pos.clone().addScaledVector(fw, L * 0.05); // 頭寄りを真ん中に
+    d = L * 1.35 + 0.5;
+    side = new THREE.Vector3(Math.sin(F.yaw - 0.55), 0.16, Math.cos(F.yaw - 0.55)).normalize(); // 顔の斜め前
+  }
   snapCam.position.copy(tgt).addScaledVector(side, d);
   snapCam.position.y = Math.max(snapCam.position.y, 0.2);
   snapCam.near = d * 0.02; snapCam.far = d * 80 + 2000; snapCam.aspect = innerWidth / innerHeight; snapCam.updateProjectionMatrix();
   snapCam.lookAt(tgt);
   const fd = scene.fog.density; scene.fog.density = 0.12 / d;
+  const hidden = [];
+  scene.traverse(o => { if (o.visible && (o.userData.plant || o.userData.other)) { o.visible = false; hidden.push(o); } });
   renderer.render(scene, snapCam);
+  hidden.forEach(o => { o.visible = true; });
   scene.fog.density = fd;
   // 図鑑の写真（思い出ムービーでも大きく映すので、少し細かめに）
   const c = document.createElement('canvas'); c.width = 540; c.height = 360;
@@ -809,7 +817,7 @@ function startMovie(trial = false) {
   const st = S, L = len();
   const entries = ZUKAN.filter(z => st.zukan[z.id]).map(z => {
     const r = st.zukan[z.id];
-    return { title: z.title, sub: `${fmtAge(r.age)}・${r.age < 0 ? '直径3.2mm' : '全長 ' + fmtLength(r.len)}`, img: r.img, note: z.text.split('。')[0] + '。', emoji: r.age < 0 ? '🥚' : '🐟' };
+    return { title: z.title, sub: `${fmtAge(r.age)}・${r.age < 0 ? '直径3.2mm' : '全長 ' + fmtLength(r.len)}`, img: r.img, line: z.line, emoji: r.age < 0 ? '🥚' : '🐟' };
   });
   const finale = `全長 ${fmtLength(L)}・${fmtWeight(weightOf(L))}${st.sexKnown ? '・' + st.sex : ''}<br>図鑑 ${entries.length} / ${ZUKAN.length}`;
   const wasOn = audio.on; audio.stop();

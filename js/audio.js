@@ -5,6 +5,7 @@ export class WaterAudio {
 
   // 音はユーザーが画面を触った後でないと鳴らせないので、ボタンから呼ぶ
   start() {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {} // iPhoneの消音スイッチでも鳴らす
     if (!this.ctx) this.build();
     this.ctx.resume();
     this.on = true;

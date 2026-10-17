@@ -125,7 +125,7 @@ export class Companions {
       }
     }
   }
-  add(f) { this.fish.push(f); this.scene.add(f.group); }
+  add(f) { f.group.userData.other = true; this.fish.push(f); this.scene.add(f.group); }
   // avoid: チョウザメの位置と大きさ（近づくとよける）
   update(dt, time, avoid, avoidR) {
     const T = this.T; if (!T) return;

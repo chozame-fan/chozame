@@ -254,7 +254,7 @@ export class Tank {
         }
         const merged = new THREE.Mesh(mergeGeos(leaves), leafM);
         merged.position.set(sx * w, 0, sz * d);
-        merged.castShadow = true; g.add(merged);
+        merged.castShadow = true; merged.userData.plant = true; g.add(merged);
       }
       // ふさふさした茎の水草（オオカナダモのような）
       for (let c = 0; c < 6; c++) {
@@ -277,7 +277,7 @@ export class Tank {
           }
         }
         const bush = new THREE.Mesh(mergeGeos(parts), leafM);
-        bush.position.set(bx, 0, bz); g.add(bush);
+        bush.position.set(bx, 0, bz); bush.userData.plant = true; g.add(bush);
       }
     }
     // 光の柱
