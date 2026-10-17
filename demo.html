@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>思い出ムービー（お試し）</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { --tx: #e9f6f8; --sub: #9fc3cb; --line: rgba(160,220,235,.22); }
+  html, body { margin: 0; height: 100%; background: #05121a; color: var(--tx); font-family: "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif; color-scheme: dark; }
+  [hidden] { display: none !important; }
+  button { font: inherit; color: var(--tx); background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; cursor: pointer; touch-action: manipulation; }
+  #start { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 0 20px; text-align: center; background: radial-gradient(circle at 50% 40%, #12384a, #05121a); }
+  #start h1 { margin: 0; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-weight: 400; letter-spacing: .12em; font-size: clamp(26px, 7vw, 44px); }
+  #start p { margin: 0; color: var(--sub); line-height: 1.8; font-size: 14px; }
+  #play { padding: 14px 28px; font-size: 18px; font-weight: 700; background: #d07a96; border: none; color: #fff; border-radius: 99px; }
+  @keyframes heartUp { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), -260%) scale(.9); } }
+  @keyframes pop { from { opacity: 0; transform: scale(.92); } }
+  #movie-ask .box { width: min(420px, 100%); text-align: center; }
+  #movie-ask p { line-height: 1.8; font-size: 16px; }
+  #movie-yes { background: #d07a96; color: #fff; border: none; }
+  #movie { position: fixed; inset: 0; z-index: 40; background: #05121a; overflow: hidden; }
+  #movie .m-img { position: absolute; inset: -4%; background-size: cover; background-position: center; opacity: 0; filter: saturate(1.05) contrast(1.03); }
+  #movie .m-img.noimg { background: radial-gradient(circle at 50% 45%, #1d5f72, #05121a); }
+  #movie .m-img.noimg::after { content: attr(data-emoji); position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); font-size: 90px; }
+  #movie .m-shade { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, transparent 45%, rgba(3,12,18,.65) 100%), linear-gradient(transparent 55%, rgba(3,12,18,.75)); }
+  #movie .m-title, #movie .m-cap, #movie .m-end p, #movie .m-btns { opacity: 0; transform: translateY(10px); transition: opacity 1.6s ease, transform 1.6s ease; }
+  #movie .show { opacity: 1 !important; transform: none !important; }
+  #movie .m-title { position: absolute; left: 0; right: 0; top: 40%; text-align: center; padding: 0 16px; }
+  #movie .m-big { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: clamp(30px, 7vw, 56px); letter-spacing: .14em; color: #fff; }
+  #movie .m-small { margin-top: 10px; color: #cfe7ee; letter-spacing: .2em; font-size: clamp(13px, 3vw, 17px); }
+  #movie .m-cap { position: absolute; left: 0; right: 0; bottom: max(70px, calc(env(safe-area-inset-bottom) + 60px)); text-align: center; padding: 0 20px; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.7); }
+  #movie .m-t { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: clamp(24px, 5.5vw, 40px); letter-spacing: .1em; }
+  #movie .m-s { margin-top: 6px; font-size: clamp(13px, 3vw, 16px); color: #d9eef3; letter-spacing: .06em; }
+  #movie .m-n { margin: 10px auto 0; max-width: 34em; font-size: clamp(12px, 2.8vw, 15px); color: #c6dde3; line-height: 1.7; }
+  #movie .m-end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 0 20px; text-align: center; background: radial-gradient(circle at 50% 40%, #12384a, #05121a); }
+  #movie .m-end p { margin: 0; color: #fff; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: .12em; }
+  #movie .m-end .l1 { font-size: clamp(24px, 6vw, 44px); }
+  #movie .m-end .l2 { font-size: clamp(26px, 6.5vw, 48px); color: #ffd6e2; }
+  #movie .m-end .l3 { font-family: inherit; font-size: clamp(13px, 3vw, 16px); color: #cfe7ee; line-height: 1.9; letter-spacing: .05em; }
+  #movie .m-btns { display: flex; gap: 10px; margin-top: 10px; }
+  #movie-skip { position: absolute; right: 16px; top: max(16px, env(safe-area-inset-top)); background: rgba(0,0,0,.35); font-size: 13px; z-index: 2; }
+</style></head><body>
+<div id="start">
+  <h1>チョウ太の10年</h1>
+  <p>図鑑がぜんぶうまった時に流れる<br>「思い出ムービー」のお試しです（約1分40秒・音が出ます）。</p>
+  <button id="play">▶ タップして再生</button>
+</div>
+<div id="movie" hidden>
+  <div class="m-img a"></div><div class="m-img b"></div>
+  <div class="m-shade"></div>
+  <div class="m-title"></div>
+  <div class="m-cap"></div>
+  <div class="m-end" hidden></div>
+  <button id="movie-skip">スキップ ▶▶</button>
+</div>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js", "three/addons/": "./vendor/addons/" } }</script>
+<script type="module">
+  import { playMemoryMovie } from './js/movie.js';
+  import { ZUKAN, fmtAge, fmtLength, weightOf, fmtWeight, expectedLength } from './js/data.js';
+  const d = await (await fetch('./demo-data.json')).json();
+  const entries = ZUKAN.filter(z => d.zukan[z.id]).map(z => {
+    const r = d.zukan[z.id];
+    return { title: z.title, sub: `${fmtAge(r.age)}・${r.age < 0 ? '直径3.2mm' : '全長 ' + fmtLength(r.len)}`, img: r.img, note: z.text.split('。')[0] + '。', emoji: r.age < 0 ? '🥚' : '🐟' };
+  });
+  const L = expectedLength(d.dev);
+  const finale = `全長 ${fmtLength(L)}・${fmtWeight(weightOf(L))}・${d.sex}<br>図鑑 ${entries.length} / ${ZUKAN.length}`;
+  document.getElementById('play').onclick = () => {
+    document.getElementById('start').hidden = true;
+    playMemoryMovie({ name: d.name, entries, finale, onDone: () => { document.getElementById('start').hidden = false; } });
+  };
+</script>
+</body></html>
