@@ -4,6 +4,7 @@ import { Tank, makeEgg, makeFood, makeEmbryo } from './world.js';
 import { Companions } from './others.js';
 import { WaterAudio } from './audio.js';
 import { playRelease } from './release.js';
+import { playMemoryMovie } from './movie.js';
 import {
   HATCH_DAYS, expectedLength, weightOf, fmtWeight, fmtLength, fmtAge, tankFor,
   FOODS, foodById, canEat, bestFood, ZUKAN, SOURCES, TANKS,
@@ -62,7 +63,7 @@ const tank = new Tank(scene);
 const others = new Companions(scene);
 const audio = new WaterAudio();
 const RELEASE_MIN = 60; // 全長(cm)：これより大きくなったら海へ放流できる
-let releasing = false;
+let releasing = false, moviePlaying = false;
 const fish = new Fish(); scene.add(fish.group);
 const egg = makeEgg(); scene.add(egg);
 let embryo = null, embryoK = -1;
@@ -418,6 +419,7 @@ function checkZukan(bg = false) {
       if (z.id === 'y3') { S.sexKnown = true; }
       toast(`📘 ${R.list.length > 1 ? S.name + 'の' : ''}図鑑に「${z.title}」が追加された！`, true);
       save();
+      if (!bg && zukanDone(S) && !S.movieSeen) setTimeout(offerMovie, 1800); // 写真を撮ってからすすめる
     }
   }
 }
@@ -435,12 +437,13 @@ function takeSnap() {
   const fd = scene.fog.density; scene.fog.density = 0.12 / d;
   renderer.render(scene, snapCam);
   scene.fog.density = fd;
-  const c = document.createElement('canvas'); c.width = 360; c.height = 240;
+  // 図鑑の写真（思い出ムービーでも大きく映すので、少し細かめに）
+  const c = document.createElement('canvas'); c.width = 540; c.height = 360;
   const src = renderer.domElement, sw = src.width, sh = src.height;
-  const r = Math.min(sw / 360, sh / 240) * 0.9;
-  c.getContext('2d').drawImage(src, (sw - 360 * r) / 2, (sh - 240 * r) / 2, 360 * r, 240 * r, 0, 0, 360, 240);
+  const r = Math.min(sw / 540, sh / 360) * 0.9;
+  c.getContext('2d').drawImage(src, (sw - 540 * r) / 2, (sh - 360 * r) / 2, 540 * r, 360 * r, 0, 0, 540, 360);
   renderer.render(scene, camera);
-  return c.toDataURL('image/jpeg', 0.8);
+  return c.toDataURL('image/jpeg', 0.74);
 }
 
 // ---------------- カメラ ----------------
@@ -456,7 +459,7 @@ const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
   let drag = null; const pts = new Map(); let pinch0 = 0, zoom0 = 1;
   const el = renderer.domElement;
   el.addEventListener('pointerdown', (e) => { pts.set(e.pointerId, [e.clientX, e.clientY]); drag = [e.clientX, e.clientY];
-    if (pts.size === 1 && hitFish(e.clientX, e.clientY)) { pet.on = true; pet.last = [e.clientX, e.clientY]; drag = null; } el.setPointerCapture(e.pointerId); if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); zoom0 = cam.zoom; } });
+    if (pts.size === 1 && hitFish(e.clientX, e.clientY)) { pet.on = true; pet.last = [e.clientX, e.clientY]; drag = null; } try { el.setPointerCapture(e.pointerId); } catch {} if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); zoom0 = cam.zoom; } });
   el.addEventListener('pointermove', (e) => {
     if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
     if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); cam.zoom = clamp(zoom0 * pinch0 / d, 0.35, 5); return; }
@@ -654,6 +657,7 @@ function openZukan(tab = 'grow') {
   const got = (tab === 'grow' ? ZUKAN.filter(z => S.zukan[z.id]).length + '/' + ZUKAN.length : tab === 'food' ? Object.keys(S.foods).length + '/' + FOODS.length : '');
   $('#zukan-count').textContent = got ? `${got} 発見` : '';
   if (tab === 'grow') {
+    if (zukanDone(S)) { const b = document.createElement('button'); b.className = 'movie-btn'; b.textContent = `🎬 ${S.name}の思い出ムービーを見る`; b.onclick = () => startMovie(); body.appendChild(b); }
     for (const z of ZUKAN) {
       const r = S.zukan[z.id];
       const card = document.createElement('div'); card.className = 'card' + (r ? '' : ' locked');
@@ -704,6 +708,8 @@ function showDetail(title, img, html) {
 
 // ---------------- はじまり ----------------
 function wireUI() {
+  $('#movie-yes').onclick = () => startMovie();
+  $('#movie-no').onclick = () => { $('#movie-ask').hidden = true; toast('図鑑の「成長の記録」から、いつでも見られるよ'); };
   $('#btn-release').onclick = (e) => { e.stopPropagation(); askRelease(); };
   $('#release-yes').onclick = () => startRelease();
   $('#release-no').onclick = () => { $('#release-ask').hidden = true; };
@@ -789,6 +795,32 @@ function start() {
   if (S.dev < 0 && Object.keys(S.zukan).length <= 1) toast('🥚 チョウザメの受精卵。ふ化まで約130時間（17℃のとき）');
   renderTabs();
   starting = false;
+}
+
+// ---------------- 思い出ムービー ----------------
+const zukanDone = (st) => ZUKAN.every(z => st.zukan[z.id]);
+function offerMovie() {
+  if (releasing || moviePlaying) return;
+  $('#movie-ask-text').innerHTML = `🎉 図鑑がぜんぶうまりました！<br><b>${S.name}</b>の思い出ムービーを見る？`;
+  $('#movie-ask').hidden = false;
+}
+function startMovie() {
+  $('#movie-ask').hidden = true; $('#zukan').classList.remove('open'); $('#detail').classList.remove('open');
+  const st = S, L = len();
+  const entries = ZUKAN.filter(z => st.zukan[z.id]).map(z => {
+    const r = st.zukan[z.id];
+    return { title: z.title, sub: `${fmtAge(r.age)}・${r.age < 0 ? '直径3.2mm' : '全長 ' + fmtLength(r.len)}`, img: r.img, note: z.text.split('。')[0] + '。', emoji: r.age < 0 ? '🥚' : '🐟' };
+  });
+  const finale = `全長 ${fmtLength(L)}・${fmtWeight(weightOf(L))}${st.sexKnown ? '・' + st.sex : ''}<br>図鑑 ${entries.length} / ${ZUKAN.length}`;
+  const wasOn = audio.on; audio.stop();
+  moviePlaying = true;
+  $('#hud').hidden = true; $('#bottom').hidden = true; $('#ruler').hidden = true; $('#toasts').innerHTML = ''; toastQ = [];
+  playMemoryMovie({ name: st.name, entries, finale, onDone: () => {
+    moviePlaying = false; st.movieSeen = true; save();
+    $('#hud').hidden = false; $('#bottom').hidden = false; $('#ruler').hidden = false;
+    if (wasOn) audio.start();
+    last = performance.now();
+  } });
 }
 
 // ---------------- 海へ放流 ----------------
@@ -919,7 +951,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 function frame(dt) {
-  if (releasing) return; // 放流の映像を流している間は、水槽は止める
+  if (releasing || moviePlaying) return; // 放流やムービーを流している間は、水槽は止める
   time += dt;
   if (S && T) {
     const paused = document.getElementById('zukan').classList.contains('open') || !document.getElementById('newfish').hidden;
@@ -955,7 +987,7 @@ function frame(dt) {
 requestAnimationFrame(loop);
 
 // 確認用
-window.__cz = { audio, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, setDev(d) { S.dev = d; S.age = d; } };
+window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, setDev(d) { S.dev = d; S.age = d; } };
 
 // アプリとして使えるように（ホーム画面に追加・オフライン）
 if ('serviceWorker' in navigator && isSecureContext && !new URLSearchParams(location.search).has('test')) {

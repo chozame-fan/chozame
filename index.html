@@ -137,6 +137,31 @@
   #release-done-img img { width: 100%; border-radius: 10px; display: block; }
   #release-new-name { width: 100%; font: inherit; font-size: 17px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--tx); text-align: center; margin: 4px 0 12px; }
   #release-yes, #release-new { background: var(--acc); color: #0b2a33; border: none; }
+  .movie-btn { grid-column: 1 / -1; padding: 12px; font-size: 15px; font-weight: 700; background: linear-gradient(90deg, #6d4a8a, #b0607a); border-color: #d08aa0; }
+  #movie-ask .box { width: min(420px, 100%); text-align: center; }
+  #movie-ask p { line-height: 1.8; font-size: 16px; }
+  #movie-yes { background: #d07a96; color: #fff; border: none; }
+  #movie { position: fixed; inset: 0; z-index: 40; background: #05121a; overflow: hidden; }
+  #movie .m-img { position: absolute; inset: -4%; background-size: cover; background-position: center; opacity: 0; filter: saturate(1.05) contrast(1.03); }
+  #movie .m-img.noimg { background: radial-gradient(circle at 50% 45%, #1d5f72, #05121a); }
+  #movie .m-img.noimg::after { content: attr(data-emoji); position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); font-size: 90px; }
+  #movie .m-shade { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, transparent 45%, rgba(3,12,18,.65) 100%), linear-gradient(transparent 55%, rgba(3,12,18,.75)); }
+  #movie .m-title, #movie .m-cap, #movie .m-end p, #movie .m-btns { opacity: 0; transform: translateY(10px); transition: opacity 1.6s ease, transform 1.6s ease; }
+  #movie .show { opacity: 1 !important; transform: none !important; }
+  #movie .m-title { position: absolute; left: 0; right: 0; top: 40%; text-align: center; padding: 0 16px; }
+  #movie .m-big { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: clamp(30px, 7vw, 56px); letter-spacing: .14em; color: #fff; }
+  #movie .m-small { margin-top: 10px; color: #cfe7ee; letter-spacing: .2em; font-size: clamp(13px, 3vw, 17px); }
+  #movie .m-cap { position: absolute; left: 0; right: 0; bottom: max(70px, calc(env(safe-area-inset-bottom) + 60px)); text-align: center; padding: 0 20px; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.7); }
+  #movie .m-t { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: clamp(24px, 5.5vw, 40px); letter-spacing: .1em; }
+  #movie .m-s { margin-top: 6px; font-size: clamp(13px, 3vw, 16px); color: #d9eef3; letter-spacing: .06em; }
+  #movie .m-n { margin: 10px auto 0; max-width: 34em; font-size: clamp(12px, 2.8vw, 15px); color: #c6dde3; line-height: 1.7; }
+  #movie .m-end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 0 20px; text-align: center; background: radial-gradient(circle at 50% 40%, #12384a, #05121a); }
+  #movie .m-end p { margin: 0; color: #fff; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: .12em; }
+  #movie .m-end .l1 { font-size: clamp(24px, 6vw, 44px); }
+  #movie .m-end .l2 { font-size: clamp(26px, 6.5vw, 48px); color: #ffd6e2; }
+  #movie .m-end .l3 { font-family: inherit; font-size: clamp(13px, 3vw, 16px); color: #cfe7ee; line-height: 1.9; letter-spacing: .05em; }
+  #movie .m-btns { display: flex; gap: 10px; margin-top: 10px; }
+  #movie-skip { position: absolute; right: 16px; top: max(16px, env(safe-area-inset-top)); background: rgba(0,0,0,.35); font-size: 13px; z-index: 2; }
   #btn-reset { font-size: 12px; padding: 6px 10px; margin-top: 14px; opacity: .7; }
   @media (max-width: 640px) {
     #hud { padding: 10px 12px; width: calc(100vw - 110px); }
@@ -248,6 +273,20 @@
   <input id="release-new-name" placeholder="新しい子の名前" maxlength="12">
   <div class="nf-btns"><button id="release-new">🥚 卵を育てる</button><button id="release-close">閉じる</button></div>
 </div></div>
+
+<div id="movie-ask" class="modal open" hidden><div class="box panel">
+  <p id="movie-ask-text"></p>
+  <div class="nf-btns"><button id="movie-yes">🎬 見る</button><button id="movie-no">あとで</button></div>
+</div></div>
+
+<div id="movie" hidden>
+  <div class="m-img a"></div><div class="m-img b"></div>
+  <div class="m-shade"></div>
+  <div class="m-title"></div>
+  <div class="m-cap"></div>
+  <div class="m-end" hidden></div>
+  <button id="movie-skip">スキップ ▶▶</button>
+</div>
 
 <div id="intro" hidden><div class="box panel">
   <h1>🥚 チョウザメを育てよう</h1>
