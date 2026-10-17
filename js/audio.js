@@ -1,14 +1,14 @@
 // 水の音をその場で作る（録音した音は使わない）
 // せせらぎ・エアーの泡・ときどき鳥の声。手を入れる音、指パクの音も。
 export class WaterAudio {
-  constructor() { this.ctx = null; this.on = false; this.birds = true; }
+  constructor() { this.ctx = null; this.on = false; this.birds = false; }
 
   // 音はユーザーが画面を触った後でないと鳴らせないので、ボタンから呼ぶ
   start() {
     if (!this.ctx) this.build();
     this.ctx.resume();
     this.on = true;
-    this.master.gain.setTargetAtTime(0.9, this.ctx.currentTime, 0.8);
+    this.master.gain.setTargetAtTime(1.6, this.ctx.currentTime, 0.8);
   }
   stop() {
     if (!this.ctx) return;
@@ -24,6 +24,7 @@ export class WaterAudio {
       for (let i = 0; i < n; i++) {
         const w = Math.random() * 2 - 1;
         if (kind === 'brown') { last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; }
+        else if (kind === 'white') d[i] = w;
         else { b0 = 0.99765 * b0 + w * 0.099; b1 = 0.963 * b1 + w * 0.2965; b2 = 0.57 * b2 + w * 1.0526; d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.2; } // ピンクノイズ
       }
     }
@@ -35,33 +36,44 @@ export class WaterAudio {
     this.master = ctx.createGain(); this.master.gain.value = 0; this.master.connect(ctx.destination);
     // せせらぎ：ノイズをいくつかの帯域に分け、ゆっくり強弱をつける
     const pink = this.noiseBuffer(6, 'pink'), brown = this.noiseBuffer(6, 'brown');
-    const layer = (buf, type, freq, q, gain, lfoRate, lfoDepth, pan) => {
+    // 細かくランダムにゆれる音量（水がちょろちょろ落ちる時の、こまかな強弱）
+    const white = this.noiseBuffer(4, 'white');
+    const flutter = (target, base, rate, depth) => {
+      const m = ctx.createBufferSource(); m.buffer = white; m.loop = true;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = rate;
+      const mg = ctx.createGain(); mg.gain.value = base * depth * 4;
+      m.connect(lp); lp.connect(mg); mg.connect(target); m.start(0, Math.random() * 3);
+    };
+    const layer = (buf, type, freq, q, gain, pan, flRate, flDepth) => {
       const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
       const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
       const g = ctx.createGain(); g.gain.value = gain;
-      const lfo = ctx.createOscillator(); lfo.frequency.value = lfoRate;
-      const lg = ctx.createGain(); lg.gain.value = gain * lfoDepth; lfo.connect(lg); lg.connect(g.gain);
-      const fl = ctx.createGain(); fl.gain.value = freq * 0.25; lfo.connect(fl); fl.connect(f.frequency);
+      if (flRate) flutter(g.gain, gain, flRate, flDepth);
       const p = ctx.createStereoPanner(); p.pan.value = pan;
       src.connect(f); f.connect(g); g.connect(p); p.connect(this.master);
-      src.start(0, Math.random() * 5); lfo.start();
+      src.start(0, Math.random() * 5);
     };
-    layer(brown, 'lowpass', 500, 0.5, 0.35, 0.07, 0.4, 0);       // 低い水の流れ
-    layer(pink, 'bandpass', 900, 0.8, 0.18, 0.23, 0.6, -0.4);   // さらさら
-    layer(pink, 'bandpass', 1700, 1.2, 0.1, 0.37, 0.8, 0.4);    // ちょろちょろ
-    layer(pink, 'highpass', 5000, 0.5, 0.025, 0.11, 0.5, 0);    // きらきらした高い音
+    // 水族館の水槽の音：波のような大きなうねりは入れない
+    layer(brown, 'lowpass', 260, 0.6, 0.07, 0, 0, 0);              // 水槽の水のこもった低い音（一定）
+    layer(pink, 'bandpass', 650, 0.9, 0.26, 0.35, 9, 0.6);         // ろ過器の出口から水が落ちる「じゃー」
+    layer(pink, 'bandpass', 1900, 1.4, 0.22, 0.45, 16, 0.9);       // 水面に落ちる「ちょろちょろ」
+    layer(pink, 'bandpass', 3600, 1.8, 0.08, 0.3, 22, 1.0);       // 細かい水しぶき
+    // ポンプのかすかなうなり
+    const hum = ctx.createOscillator(); hum.frequency.value = 100;
+    const hg = ctx.createGain(); hg.gain.value = 0.006; hum.connect(hg); hg.connect(this.master); hum.start();
     this.loop();
   }
 
-  // 泡・ちゃぷちゃぷ・鳥を、ばらばらの間隔で鳴らす
+  // エアーストーンの泡（ぶくぶく）と、ときどき水滴
   loop() {
     const tick = () => {
       if (this.ctx && this.on) {
-        if (Math.random() < 0.55) this.bubble(0.04 + Math.random() * 0.05);
-        if (Math.random() < 0.08) this.drip();
-        if (this.birds && Math.random() < 0.018) this.bird();
+        this.bubble(0.015 + Math.random() * 0.035, true);
+        if (Math.random() < 0.25) this.bubble(0.03 + Math.random() * 0.03, true);
+        if (Math.random() < 0.012) this.drip();
+        if (this.birds && Math.random() < 0.004) this.bird();
       }
-      setTimeout(tick, 120 + Math.random() * 260);
+      setTimeout(tick, 35 + Math.random() * 70);
     };
     tick();
   }
@@ -69,11 +81,12 @@ export class WaterAudio {
   env(g, t, a, peak, d) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + d); }
 
   // エアーの泡：ぽこっ（音程が上がる短い音）
-  bubble(vol = 0.06) {
+  bubble(vol = 0.06, fine = false) {
     const ctx = this.ctx, t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(), p = ctx.createStereoPanner();
-    const f0 = 250 + Math.random() * 500;
-    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * (2 + Math.random()), t + 0.06);
-    this.env(g, t, 0.005, vol, 0.07); p.pan.value = -0.6 + Math.random() * 0.3;
+    const f0 = fine ? 700 + Math.random() * 1300 : 250 + Math.random() * 500;
+    const len = fine ? 0.025 + Math.random() * 0.02 : 0.06;
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * (1.6 + Math.random()), t + len);
+    this.env(g, t, 0.003, vol, len + 0.01); p.pan.value = -0.55 + Math.random() * 0.25; // エアーストーンは左奥
     o.connect(g); g.connect(p); p.connect(this.master); o.start(t); o.stop(t + 0.1);
   }
   // 水滴：ぴちょん
