@@ -25,7 +25,9 @@
   button:active { transform: scale(.97); }
   #hud { position: fixed; top: max(12px, env(safe-area-inset-top)); left: 12px; width: min(300px, calc(100vw - 24px)); padding: 12px 14px; }
   #hud .top { display: flex; align-items: baseline; gap: 8px; cursor: pointer; }
-  #hud .snd { margin-left: auto; padding: 2px 8px; font-size: 15px; border-radius: 99px; }
+  #hud .snd { margin-left: auto; padding: 3px 10px; font-size: 12px; font-weight: 700; border-radius: 99px; white-space: nowrap; }
+  #hud .snd.on { background: var(--acc); color: #0b2a33; border-color: var(--acc); }
+  #btn-hand { background: #3a6f8a; border-color: #5aa0c0; }
   #hud .fold { font-size: 12px; color: var(--sub); }
   #hud.mini .more { display: none; }
   #name { font-size: 20px; font-weight: 700; white-space: nowrap; }
@@ -135,7 +137,7 @@
     #tank-name { display: none; }
     .temp { margin-top: 2px; }
     #bottom { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; padding: 7px; width: calc(100vw - 16px); }
-    #bottom .big { padding: 10px 4px; font-size: 14px; grid-column: span 4; }
+    #bottom .big { padding: 10px 2px; font-size: 13px; grid-column: span 3; }
     #bottom .speedwrap { grid-column: span 6; }
     #bottom label.auto { grid-column: span 2; flex-direction: column; gap: 2px; font-size: 10px; padding: 0; justify-content: center; }
     #btn-view, #btn-cam { grid-column: span 2; padding: 6px 0; font-size: 18px; }
@@ -173,6 +175,7 @@
 
 <div id="bottom" class="panel" hidden>
   <button id="btn-food" class="big">🍽 えさ</button>
+  <button id="btn-hand" class="big">🤚 指パク</button>
   <button id="btn-water" class="big">💧 水かえ</button>
   <button id="btn-zukan" class="big">📘 図鑑</button>
   <div class="speedwrap">

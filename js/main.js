@@ -673,6 +673,8 @@ function traitText(t) {
 function updateHUD() {
   const L = len();
   $('#name').textContent = S.name;
+  $('#btn-hand').textContent = len() >= GABU_MIN ? '💪 腕ガブ' : '🤚 指パク';
+  $('#btn-hand').style.opacity = S.dev >= 12 && len() >= YUBI_MIN ? 1 : 0.5;
   $('#trait').textContent = traitText(ensureTraits(S));
   $('#stage').textContent = stageName();
   $('#age').textContent = fmtAge(S.age);
@@ -771,8 +773,9 @@ function showDetail(title, img, html) {
 function wireUI() {
   // 水の音：画面を触った後でないと鳴らせないので、ボタンで始める
   const sndOn = () => { try { return localStorage.getItem('chozame-sound') !== '0'; } catch { return true; } };
-  const setSnd = (on) => { if (on) audio.start(); else audio.stop(); $('#snd').textContent = on ? '🔊' : '🔇'; try { localStorage.setItem('chozame-sound', on ? '1' : '0'); } catch {} };
-  $('#snd').textContent = '🔇';
+  const setSnd = (on) => { if (on) audio.start(); else audio.stop(); $('#snd').textContent = on ? '🔊 水の音 ON' : '🔇 水の音 OFF'; $('#snd').classList.toggle('on', on); try { localStorage.setItem('chozame-sound', on ? '1' : '0'); } catch {} };
+  $('#snd').textContent = '🔇 水の音 OFF';
+  $('#btn-hand').onclick = () => handFeed();
   $('#snd').onclick = (e) => { e.stopPropagation(); setSnd(!audio.on); };
   const first = (e) => { removeEventListener('pointerdown', first); if (e.target.id !== 'snd' && sndOn() && !audio.on) setSnd(true); };
   addEventListener('pointerdown', first);
