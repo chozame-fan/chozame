@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { Fish, lookFor, makeTraits } from './fish.js';
 import { Tank, makeEgg, makeFood, makeEmbryo } from './world.js';
 import { Companions } from './others.js';
+import { makeHand } from './hand.js';
+import { WaterAudio } from './audio.js';
 import {
   HATCH_DAYS, expectedLength, weightOf, fmtWeight, fmtLength, fmtAge, tankFor,
   FOODS, foodById, canEat, bestFood, ZUKAN, SOURCES, TANKS,
@@ -58,6 +60,7 @@ scene.add(sun, sun.target);
 
 const tank = new Tank(scene);
 const others = new Companions(scene);
+const audio = new WaterAudio();
 const fish = new Fish(); scene.add(fish.group);
 const egg = makeEgg(); scene.add(egg);
 let embryo = null, embryoK = -1;
@@ -142,6 +145,73 @@ function nextMode() {
   if (Math.random() < 0.3 && F.mode !== 'rest') { F.rollTarget = (Math.random() < 0.5 ? -1 : 1) * (0.9 + Math.random() * 0.6); F.rollT = 1.2 + Math.random(); }
 }
 
+// ---------------- 手から餌：指パク／腕ガブ ----------------
+const YUBI_MIN = 12, GABU_MIN = 70; // 全長(cm)
+const HF = { active: false, phase: '', t: 0, gabu: false, hand: null, food: null, base: new THREE.Vector3(), tip: new THREE.Vector3(), target: new THREE.Vector3(), depth: 0 };
+const HF_FOOD = { mesh: { position: new THREE.Vector3() }, edible: true, settled: false, hand: true };
+function handFeed() {
+  const L = len();
+  if (HF.active) return;
+  if (S.dev < 12 || L < YUBI_MIN) { toast(`まだ口が小さいので、手からは食べられない（全長${YUBI_MIN}cmくらいから）`); return; }
+  HF.gabu = L >= GABU_MIN;
+  const f = bestFood(S.dev, L) || foodById.krill;
+  HF.hand = makeHand();
+  HF.food = makeFood(f); HF.food.scale.multiplyScalar(f.size < 1 ? 2 : 1); HF.food.userData.f = f;
+  HF.food.position.copy(HF.hand.userData.tip); HF.hand.add(HF.food);
+  // 魚の少し前、水面から手を入れる
+  const fw = new THREE.Vector3(Math.cos(F.yaw), 0, -Math.sin(F.yaw));
+  // 水草は壁ぎわにあるので、手は水槽の真ん中寄りに入れる
+  const mx = Math.max(14, T.w * 0.22), mz = Math.max(14, T.d * 0.3);
+  HF.base.set(clamp(F.pos.x + fw.x * L * 1.3, -T.w / 2 + mx, T.w / 2 - mx), 0, clamp(F.pos.z + fw.z * L * 1.3, -T.d / 2 + mz, T.d / 2 - mz));
+  HF.depth = HF.gabu ? Math.min(T.h * 0.45, 28) : Math.min(T.h * 0.4, 14); // 指先が水面からどれだけ沈むか
+  HF.active = true; HF.phase = 'enter'; HF.t = 0; HF.splashed = false;
+  scene.add(HF.hand);
+  $('#food-sheet').classList.remove('open');
+  toast(HF.gabu ? '💪 腕を水に入れて、餌を差し出した…' : '🤚 人差し指と中指で餌をはさんで、水に入れた…');
+}
+function handTipWorld(out) { return HF.hand.localToWorld(out.copy(HF.hand.userData.tip)); }
+function updateHand(dt) {
+  if (!HF.active) return;
+  HF.t += dt;
+  const h = HF.hand, tipY = T.h - HF.depth;
+  const restY = tipY + 17.3; // 指先が tipY に来る手首の高さ
+  // 手のひらをカメラに向ける
+  h.rotation.y = Math.atan2(camera.position.x - h.position.x, camera.position.z - h.position.z);
+  if (HF.phase === 'enter') {
+    const k = Math.min(1, HF.t / 1.4), e = 1 - (1 - k) ** 3;
+    h.position.set(HF.base.x, restY + 40 * (1 - e), HF.base.z);
+    if (!HF.splashed && h.position.y - 17.3 < T.h) { HF.splashed = true; audio.splash(HF.gabu); }
+    if (k >= 1) { HF.phase = 'wait'; HF.t = 0; }
+  } else if (HF.phase === 'wait') {
+    h.position.set(HF.base.x + Math.sin(HF.t * 1.3) * 0.6, restY + Math.sin(HF.t * 2.1) * 0.5, HF.base.z);
+    if (HF.t > 18) { HF.phase = 'leave'; HF.t = 0; toast('今はお腹がいっぱいみたい'); }
+  } else if (HF.phase === 'bite') {
+    // 吸いつかれて少し引っぱられる。腕ガブは左右にゆさぶられる
+    const tug = HF.gabu ? 3 + Math.sin(HF.t * 2) * 1.5 : 1.2 + Math.sin(HF.t * 3) * 0.6;
+    const shake = HF.gabu ? Math.sin(HF.t * 7) * 1.4 : Math.sin(HF.t * 9) * 0.3;
+    h.position.set(HF.base.x + shake, restY - tug, HF.base.z);
+    h.rotation.z = shake * 0.02;
+    if (HF.t > (HF.gabu ? 3.2 : 2.3)) { HF.phase = 'leave'; HF.t = 0; F.mode = null; setMode(HF.gabu ? 'burst' : 'cruise'); }
+  } else if (HF.phase === 'leave') {
+    const k = Math.min(1, HF.t / 1.2);
+    h.position.y += dt * 45 * k;
+    if (HF.t > 1.6) { scene.remove(h); HF.active = false; HF.phase = ''; }
+  }
+  // 魚が狙う場所：指パクは指先、腕ガブは手のひらのまん中（手ごとくわえる）
+  handTipWorld(HF.tip);
+  HF.target.copy(HF.tip); if (HF.gabu) HF.target.y += 17; // 腕ガブは手首まで
+}
+function biteHand() {
+  HF.phase = 'bite'; HF.t = 0; F.holdPos = null;
+  // 手がカメラから見て右か左かで、ひねる向きを決める
+  F.yawSign = Math.sign(Math.sin(F.yaw - cam.az)) || 1;
+  if (HF.food) { HF.hand.remove(HF.food); const f = HF.food.userData.f; HF.food = null; S.satiety = Math.min(110, S.satiety + (HF.gabu ? 45 : 30) * f.quality); unlockFood(f.id); }
+  audio.slurp(HF.gabu);
+  const id = HF.gabu ? 'udegabu' : 'yubipaku';
+  toast(HF.gabu ? '💥 腕ガブ！ 手ごとくわえられた！' : '😆 指パク！ 指ごとチュポッと吸いこまれた！', true);
+  unlockEvent(id);
+}
+
 function updateFish(dt) {
   const L = len();
   if (F.freeze) { fish.setSwim(F.phase, 0.015, 0, 0); fish.setMouth(F.mouth || 0); fish.setExpr(F.snout || 0, F.snoutZ || 0, F.barbX || 0, F.barbZ || 0); fish.group.position.copy(F.pos); fish.group.rotation.set(F.roll || 0, F.yaw, F.pitch); fish.group.scale.setScalar(L); return; }
@@ -159,6 +229,12 @@ function updateFish(dt) {
       if (dd < best) { best = dd; food = f; }
     }
   }
+  if (HF.active && HF.phase === 'wait' && !yolkStage) {
+    HF_FOOD.mesh.position.copy(HF.target);
+    food = HF_FOOD; best = mouthPos().distanceTo(HF.target);
+  }
+  // 指・腕をくわえている間：口を手に合わせて止まる
+  if (HF.active && HF.phase === 'bite') return holdHand(dt, L);
   if (!F.mode) setMode('cruise');
   if (food) F.target.copy(food.mesh.position).add(new THREE.Vector3(0, L * 0.05, 0));
   else if (!yolkStage) {
@@ -173,7 +249,7 @@ function updateFish(dt) {
   const wantYaw = Math.atan2(-to.z, to.x);
   let dy = wantYaw - F.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
   const burst = !food && F.mode === 'burst';
-  const turnMax = (yolkStage ? 3 : burst ? 2.2 : food ? 1.4 : 0.8) / (1 + L / 120);
+  const turnMax = (yolkStage ? 3 : burst ? 2.2 : food === HF_FOOD ? 2.2 : food ? 1.4 : 0.8) / (1 + L / 120);
   const yawRateT = clamp(dy * 2.0, -turnMax, turnMax);
   F.yawV = (F.yawV || 0) + (yawRateT - (F.yawV || 0)) * Math.min(1, dt * (burst ? 4 : 2.2));
   const yawRate = F.yawV;
@@ -249,7 +325,8 @@ function updateFish(dt) {
   // 食べる
   if (food) {
     const mp = mouthPos(), fp = food.mesh.position;
-    if (Math.hypot(mp.x - fp.x, mp.z - fp.z) < Math.max(L * 0.14, 0.3) && Math.abs(mp.y - fp.y) < Math.max(L * 0.14, 0.4)) eat(food);
+    if (food === HF_FOOD) { if (mp.distanceTo(fp) < Math.max(L * 0.45, 4)) biteHand(); } // 近くまで来たら、口を合わせながら吸いつく
+    else if (Math.hypot(mp.x - fp.x, mp.z - fp.z) < Math.max(L * 0.14, 0.3) && Math.abs(mp.y - fp.y) < Math.max(L * 0.14, 0.4)) eat(food);
   }
 
   // 体の曲がり・尾の振り幅・リズムは、すべてゆっくり変える
@@ -265,6 +342,38 @@ function updateFish(dt) {
   const flap = (yolkStage ? 0.1 : 0.12 + 0.35 * Math.max(0, 1 - F.relS * 1.5)) * Math.sin(F.flapPh) - clamp(F.pitchV * 0.4, -0.3, 0.3);
   fish.setSwim(F.phase, F.ampS, F.turn, flap);
   fish.group.position.copy(F.pos).addScaledVector(fw, -PIVOT * L);
+  fish.group.rotation.order = 'YZX';
+  fish.group.rotation.set(F.roll, F.yaw, F.pitch);
+  fish.group.scale.setScalar(L);
+}
+
+function holdHand(dt, L) {
+  const now = performance.now() / 1000, t = HF.t;
+  // 体をひねって口（お腹側）を上の手に向ける。腕ガブはほぼ仰向け、指パクは横向きくらい
+  // 腕ガブ：頭を水面に向けて立て、腕を体の奥までくわえこむ（首をふる）。指パク：頭を上げて指先に吸いつく
+  const rollT = HF.gabu ? Math.sin(now * 6) * 0.35 : 0;
+  const pitchT = HF.gabu ? 1.5 : 0.7;
+  F.roll = (F.roll || 0) + (rollT - (F.roll || 0)) * Math.min(1, dt * 3.5);
+  F.pitch += (pitchT - F.pitch) * Math.min(1, dt * 3);
+  // 口の場所が手（腕ガブは手首の近くまで）に重なるように体を動かす
+  const juv = 1 - Math.min(1, Math.max(0, (L - 30) / 60));
+  const mouthLocal = new THREE.Vector3(0.5 - (0.15 + 0.04 * juv), HF.gabu ? 0 : -0.035, 0);
+  const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(F.roll, F.yaw, F.pitch, 'YZX'));
+  const groupWant = HF.target.clone().sub(mouthLocal.multiplyScalar(L).applyQuaternion(q));
+  F.holdPos = (F.holdPos || fish.group.position.clone()).lerp(groupWant, Math.min(1, dt * 5));
+  const fw = new THREE.Vector3(Math.cos(F.yaw) * Math.cos(F.pitch), Math.sin(F.pitch), -Math.sin(F.yaw) * Math.cos(F.pitch));
+  F.pos.copy(F.holdPos).addScaledVector(fw, PIVOT * L);
+  F.speed = 0; F.yawV = 0;
+  // 口：最初に大きく開けて吸いこみ、あとはくわえたままモグモグ
+  const m = t < 0.3 ? 1.2 : HF.gabu ? 1.1 + 0.1 * Math.sin(t * 5) : 0.55 + 0.18 * Math.sin(t * 4.5);
+  F.mouth += (m - F.mouth) * Math.min(1, dt * 10);
+  fish.setMouth(F.mouth);
+  F.snout = (F.snout || 0) + (0.4 - (F.snout || 0)) * Math.min(1, dt * 4);
+  fish.setExpr(F.snout + 0.15 * Math.sin(t * 4), 0, 0.4, Math.sin(now * 3) * 0.2);
+  F.phase += dt * (HF.gabu ? 6 : 4);
+  F.turn *= 0.9;
+  fish.setSwim(F.phase, HF.gabu ? 0.045 : 0.025, F.turn, 0.25 * Math.sin(now * 2));
+  fish.group.position.copy(F.holdPos);
   fish.group.rotation.order = 'YZX';
   fish.group.rotation.set(F.roll, F.yaw, F.pitch);
   fish.group.scale.setScalar(L);
@@ -396,10 +505,18 @@ function hatch() {
 }
 
 // ---------------- 図鑑 ----------------
-let pendingSnaps = [];
+let pendingSnaps = [], pendingMainSnaps = [];
+function unlockEvent(id) {
+  if (S.zukan[id]) return;
+  const z = ZUKAN.find(z => z.id === id);
+  S.zukan[id] = { age: S.age, dev: S.dev, len: len(), img: null };
+  pendingMainSnaps.push(id);
+  toast(`📘 図鑑に「${z.title}」が追加された！`, true);
+  save();
+}
 function checkZukan(bg = false) {
   for (const z of ZUKAN) {
-    if (S.zukan[z.id]) continue;
+    if (S.zukan[z.id] || z.event) continue;
     const t = z.at >= 365 ? S.age : S.dev;
     if (t >= z.at - 1e-6) {
       S.zukan[z.id] = { age: S.age, dev: S.dev, len: len(), img: null };
@@ -470,6 +587,7 @@ function updateCamera(dt) {
     else if (v === 'top') { tAz = F.yaw + 0.3; tEl = 1.25; }
     else if (v === 'belly') { tAz = F.yaw + 0.4; tEl = -0.55; }
     else if (v === 'face') { tAz = F.yaw + Math.PI / 2 - 0.55; tEl = -0.28; faceFocus = true; }
+    else if (performance.now() / 1000 - cam.lastTouch > 3 && HF.active && HF.phase !== 'enter') { tAz = F.yaw + Math.PI / 2 - (HF.gabu ? 1.35 : 1.05); tEl = HF.gabu ? -0.3 : 0.05; d *= HF.gabu ? 0.95 : 0.9; faceFocus = 'hand'; }
     else if (performance.now() / 1000 - cam.lastTouch > 3 && foods.some(f => f.edible) && S.dev >= 9) { tAz = F.yaw + Math.PI / 2 - 0.8; tEl = -0.32; d *= 0.6; faceFocus = true; }
     if (tAz !== null) {
       const k = Math.min(1, dt * 3);
@@ -477,7 +595,8 @@ function updateCamera(dt) {
     }
   }
   // 顔を見る時は、体の真ん中ではなく頭（口のあたり）を画面の中心に
-  if (faceFocus) want = mouthPos();
+  if (faceFocus === 'hand') want = HF.target.clone().add(new THREE.Vector3(0, HF.gabu ? -len() * 0.15 : -2, 0));
+  else if (faceFocus) want = mouthPos();
   d *= cam.zoom;
   camTarget.lerp(want, Math.min(1, dt * 3));
   cam.dist += (d - cam.dist) * Math.min(1, dt * 2.5);
@@ -573,6 +692,9 @@ function updateHUD() {
 
 function buildFoodMenu() {
   const box = $('#food-list'); box.innerHTML = '';
+  const hb = document.createElement('button'); hb.className = 'food hand-feed'; hb.id = 'hand-feed';
+  hb.onclick = () => handFeed();
+  box.appendChild(hb);
   for (const f of FOODS) {
     const b = document.createElement('button'); b.className = 'food';
     b.innerHTML = `<span class="ic">${f.icon}</span><span>${f.name}</span>`;
@@ -582,7 +704,10 @@ function buildFoodMenu() {
 }
 function refreshFoodMenu() {
   const L = len();
-  document.querySelectorAll('#food-list .food').forEach((b, i) => {
+  const hb = $('#hand-feed');
+  hb.innerHTML = L >= GABU_MIN ? '<span class="ic">💪</span><span>腕を入れてあげる（腕ガブ）</span>' : `<span class="ic">🤚</span><span>指ではさんであげる（指パク）${L < YUBI_MIN ? `<small>全長${YUBI_MIN}cmから</small>` : ''}</span>`;
+  hb.classList.toggle('good', S.dev >= 12 && L >= YUBI_MIN);
+  document.querySelectorAll('#food-list .food:not(.hand-feed)').forEach((b, i) => {
     const f = FOODS[i];
     b.classList.toggle('good', S.dev >= 0 && canEat(f, S.dev, L));
   });
@@ -644,6 +769,13 @@ function showDetail(title, img, html) {
 
 // ---------------- はじまり ----------------
 function wireUI() {
+  // 水の音：画面を触った後でないと鳴らせないので、ボタンで始める
+  const sndOn = () => { try { return localStorage.getItem('chozame-sound') !== '0'; } catch { return true; } };
+  const setSnd = (on) => { if (on) audio.start(); else audio.stop(); $('#snd').textContent = on ? '🔊' : '🔇'; try { localStorage.setItem('chozame-sound', on ? '1' : '0'); } catch {} };
+  $('#snd').textContent = '🔇';
+  $('#snd').onclick = (e) => { e.stopPropagation(); setSnd(!audio.on); };
+  const first = (e) => { removeEventListener('pointerdown', first); if (e.target.id !== 'snd' && sndOn() && !audio.on) setSnd(true); };
+  addEventListener('pointerdown', first);
   // 情報欄をたたむ（スマホで魚を大きく見たい時）
   const setFold = (on) => { $('#hud').classList.toggle('mini', on); $('#fold').textContent = on ? '▼' : '▲'; try { localStorage.setItem('chozame-fold', on ? '1' : ''); } catch {} };
   $('#hud-top').onclick = () => setFold(!$('#hud').classList.contains('mini'));
@@ -811,6 +943,7 @@ function frame(dt) {
       e.yolk.scale.setScalar(1 - 0.12 * k);
       egg.rotation.y = Math.sin(time * 0.2) * 0.2;
     }
+    updateHand(dt);
     updateFish(dt);
     updateFoods(dt, paused ? 0 : dt * SPEEDS[R.speed].d);
     tank.update(dt, time, camera, camTarget);
@@ -819,6 +952,14 @@ function frame(dt) {
     if ((time * 4 | 0) !== ((time - dt) * 4 | 0)) { updateHUD(); renderTabs(); }
   }
   renderer.render(scene, camera);
+  if (pendingMainSnaps.length && S) { // 指パクなどは、今の画面をそのまま写真に
+    const c = document.createElement('canvas'); c.width = 360; c.height = 240;
+    const src = renderer.domElement, r = Math.min(src.width / 360, src.height / 240) * 0.75;
+    c.getContext('2d').drawImage(src, (src.width - 360 * r) / 2, (src.height - 240 * r) / 2, 360 * r, 240 * r, 0, 0, 360, 240);
+    const img = c.toDataURL('image/jpeg', 0.8);
+    for (const id of pendingMainSnaps) if (S.zukan[id]) S.zukan[id].img = img;
+    pendingMainSnaps = []; save();
+  }
   if (pendingSnaps.length && S) { // 図鑑の写真は描いた直後に撮る
     const img = takeSnap();
     for (const id of pendingSnaps) if (S.zukan[id]) S.zukan[id].img = img;
@@ -828,7 +969,7 @@ function frame(dt) {
 requestAnimationFrame(loop);
 
 // 確認用
-window.__cz = { get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, setDev(d) { S.dev = d; S.age = d; } };
+window.__cz = { HF, handFeed, audio, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, setDev(d) { S.dev = d; S.age = d; } };
 
 // アプリとして使えるように（ホーム画面に追加・オフライン）
 if ('serviceWorker' in navigator && isSecureContext && !new URLSearchParams(location.search).has('test')) {

@@ -6,9 +6,9 @@ const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
 const mix = (a, b, k) => a + (b - a) * k;
 
 // [t, 幅, 高さ, 中心の上下]  t=0 が口先、1 が尾の先
-const ADULT = [[0, 0, 0, -.004], [.012, .028, .010, -.004], [.05, .046, .018, -.004], [.12, .060, .030, -.002], [.18, .070, .046, .004], [.25, .077, .060, .006], [.35, .080, .066, .006], [.48, .066, .058, .004], [.62, .048, .042, .004], [.74, .030, .028, .006], [.82, .019, .020, .010], [.90, .010, .012, .026], [1, .002, .003, .05]];
+const ADULT = [[0, 0, 0, -.004], [.012, .028, .010, -.004], [.05, .046, .018, -.004], [.12, .060, .030, -.002], [.18, .070, .046, .004], [.25, .077, .064, .008], [.35, .080, .071, .010], [.48, .067, .060, .006], [.62, .048, .042, .004], [.74, .030, .028, .006], [.82, .019, .020, .010], [.90, .010, .012, .026], [1, .002, .003, .05]];
 // 若魚：口先が長くとがる
-const JUV = [[0, 0, 0, -.002], [.02, .008, .005, -.002], [.06, .018, .009, -.003], [.12, .036, .018, -.002], [.18, .054, .036, .003], [.25, .064, .052, .005], [.35, .068, .058, .006], [.48, .060, .052, .004], [.62, .044, .040, .004], [.74, .028, .027, .006], [.82, .018, .019, .010], [.90, .010, .012, .026], [1, .002, .003, .05]];
+const JUV = [[0, 0, 0, -.002], [.02, .008, .005, -.002], [.06, .018, .009, -.003], [.12, .036, .018, -.002], [.18, .054, .036, .003], [.25, .064, .056, .007], [.35, .068, .063, .009], [.48, .060, .054, .005], [.62, .044, .040, .004], [.74, .028, .027, .006], [.82, .018, .019, .010], [.90, .010, .012, .026], [1, .002, .003, .05]];
 // ふ化直後の仔魚：頭が丸く、しっぽが長い
 const LARVA = [[0, 0, 0, 0], [.02, .030, .028, 0], [.06, .050, .048, 0], [.12, .060, .058, 0], [.2, .062, .062, -.004], [.3, .056, .056, -.004], [.42, .044, .046, -.002], [.55, .032, .036, 0], [.7, .022, .026, 0], [.85, .013, .016, 0], [1, .002, .003, 0]];
 
@@ -221,7 +221,7 @@ export class Fish {
     const NS = 220, NR = 64;
     const pos = [], col = [], idx = [], uv = [], mo = [];
     // 口の位置（腹側、口先から16%のところ）と大きさ
-    const TM = 0.16, pM = prof(TM), rT = 0.021, rZ = pM.w * 0.68, mouthOn = L.larva < 0.8 ? 1 : 0;
+    const TM = mix(mix(0.15, 0.19, L.juv), 0.12, L.larva), pM = prof(TM), rT = 0.021, rZ = pM.w * 0.68, mouthOn = L.larva < 0.8 ? 1 : 0;
     const ridge = (a) => {
       // 骨板の列のところを少し盛り上げて五角形っぽくする
       const rows = [Math.PI / 2, 0.22, Math.PI - 0.22, -0.62, -Math.PI + 0.62];
@@ -269,8 +269,10 @@ export class Fish {
         const n = hash(i * 0.7, j * 1.3);
         const spot = n > 0.86 ? -0.10 : n < 0.1 ? 0.05 : 0;
                 const plate = t < 0.2 && s > 0.2 ? (hash(Math.floor(i / 3), Math.floor(j / 3)) - 0.5) * 0.25 * (1 - L.larva) : 0; // 頭の骨の板
+        const gillT = mix(mix(0.21, 0.26, L.juv), 0.16, L.larva) + 0.02 * (1 - Math.abs(s));
+        const gill = Math.abs(t - gillT) < 0.0045 && s > -0.55 && s < 0.75 ? -0.28 * grown : 0; // えらぶたのふち
         const mel = (1 - L.pigment) * (hash(i * 3.1, j * 0.9) > 0.92 && s > -0.3 ? -0.35 : 0); // 仔魚の黒い点
-        const f = 1 + (spot + mel) * (0.4 + k) + plate;
+        const f = 1 + (spot + mel) * (0.4 + k) + plate + gill;
         col.push(c.r * f, c.g * f, c.b * f);
       }
     }
@@ -339,15 +341,15 @@ export class Fish {
     }
     // 胸ビレ（横に張り出す）
     for (const sgn of [-1, 1]) {
-      const sz = mix(1, 0.35, L.larva);
+      const sz = mix(1.22, 0.35, L.larva);
       const sh = new THREE.Shape();
       chaikin([[0, 0], [-0.02, 0.06], [-0.045, 0.09], [-0.066, 0.08], [-0.06, 0.03], [-0.05, 0]].map(([x, y]) => new THREE.Vector2(x * sz, y * sz)), true).forEach((q, i) => i ? sh.lineTo(q.x, q.y) : sh.moveTo(q.x, q.y));
       const g = finColor(new THREE.ShapeGeometry(sh), (x, y) => Math.hypot(x, y) / (0.095 * sz));
       // shape の (x, y) → (x, 0, z) 平面に
       g.rotateX(sgn * Math.PI / 2);
-      g.rotateX(sgn * 0.35); // 少し下向き
-      const p = prof(0.22);
-      g.translate(0.5 - 0.22, p.yc - p.h * 0.55, sgn * p.w * 0.85);
+      g.rotateX(sgn * 0.55); // 下向き
+      const PT = mix(0.24, 0.27, L.juv), p = prof(PT);
+      g.translate(0.5 - PT, p.yc - p.h * 0.6, sgn * p.w * 0.8);
       fins.push(g);
     }
     this.mFin.opacity = mix(0.95, 0.4, L.larva);
@@ -367,14 +369,14 @@ export class Fish {
     };
     const sharp = mix(0.55, 1.5, L.juv);
     if (L.scuteD > 0.02 && L.larva < 0.9) {
-      for (let i = 0; i < 12; i++) { const t = mix(0.17, 0.64, i / 11); cone(t, Math.PI / 2, prof(t).w * 0.2 * L.scuteD * TR.scute, sharp); }
+      for (let i = 0; i < 15; i++) { const t = mix(mix(0.16, 0.2, L.juv), 0.64, i / 14); cone(t, Math.PI / 2, prof(t).w * 0.16 * L.scuteD * TR.scute, sharp * 0.85); }
     }
     if (L.scuteLV > 0.02 && L.larva < 0.9) {
       for (const a of [0.22, Math.PI - 0.22]) for (let i = 0; i < 38; i++) { const t = mix(0.2, 0.82, i / 37); cone(t, a, prof(t).w * 0.058 * L.scuteLV, sharp * 0.45, scutesLV); }
       for (const a of [-0.62, -Math.PI + 0.62]) for (let i = 0; i < 9; i++) { const t = mix(0.27, 0.56, i / 8); cone(t, a, prof(t).w * 0.07 * L.scuteLV, sharp * 0.4, scutesLV); }
     }
     if (scutes.length) {
-      this.mScute.color.set('#6e6a58').lerp(new THREE.Color('#e0d6b4'), Math.min(1, L.juv * (0.5 + TR.scuteLight) + (1 - L.juv) * TR.scuteLight * 0.35));
+      this.mScute.color.copy(top).lerp(new THREE.Color('#d9cfb0'), 0.25 + 0.35 * TR.scuteLight * L.juv);
       add(mergeGeometries(scutes), this.mScute, true);
     }
     if (scutesLV.length) {
@@ -387,12 +389,12 @@ export class Fish {
     const er = mix(0.0085 * TR.eye, 0.02, L.larva);
     const iris = [];
     for (const sgn of [-1, 1]) {
-      const p = prof(0.115);
+      const ET = mix(mix(0.13, 0.17, L.juv), 0.11, L.larva), p = prof(ET);
       const g = new THREE.SphereGeometry(er * 0.6, 12, 8); g.scale(1, 1, 0.45);
-      g.translate(0.5 - 0.115, p.yc + p.h * 0.35, sgn * (p.w * 0.86 + er * 0.24));
+      g.translate(0.5 - ET, p.yc + p.h * 0.35, sgn * (p.w * 0.86 + er * 0.24));
       eyes.push(g);
       const r = new THREE.SphereGeometry(er, 14, 10); r.scale(1, 0.9, 0.32);
-      r.translate(0.5 - 0.115, p.yc + p.h * 0.35, sgn * p.w * 0.86);
+      r.translate(0.5 - ET, p.yc + p.h * 0.35, sgn * p.w * 0.86);
       iris.push(r);
     }
     add(mergeGeometries(eyes), this.mEye);
@@ -401,7 +403,7 @@ export class Fish {
     // --- ヒゲ（4本） ---
     if (L.barbel > 0.02) {
       const bars = [];
-      const tb = mix(0.085, 0.07, L.larva);
+      const tb = mix(mix(0.09, 0.125, L.juv), 0.07, L.larva);
       const p = prof(tb);
       const len = 0.042 * L.barbel * mix(TR.barbel, 0.6, L.larva);
       for (const z of [-0.6, -0.2, 0.2, 0.6]) {
