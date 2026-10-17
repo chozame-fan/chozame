@@ -20,7 +20,7 @@
   #movie .m-img.noimg { background: radial-gradient(circle at 50% 45%, #1d5f72, #05121a); }
   #movie .m-img.noimg::after { content: attr(data-emoji); position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); font-size: 90px; }
   #movie .m-shade { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, transparent 45%, rgba(3,12,18,.65) 100%), linear-gradient(transparent 55%, rgba(3,12,18,.75)); }
-  #movie .m-line { position: absolute; left: 0; right: 0; top: 36%; text-align: center; padding: 0 18px; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: clamp(22px, 5.8vw, 42px); line-height: 1.6; letter-spacing: .1em; color: #fff; text-shadow: 0 2px 18px rgba(0,20,30,.85), 0 0 4px rgba(0,0,0,.6); opacity: 0; transform: translateY(8px); transition: opacity 1.2s, transform 1.2s; }
+  #movie .m-line { position: absolute; left: 0; right: 0; bottom: max(150px, calc(env(safe-area-inset-bottom) + 140px)); text-align: center; padding: 0 18px; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: clamp(22px, 5.8vw, 42px); line-height: 1.6; letter-spacing: .1em; color: #fff; text-shadow: 0 2px 18px rgba(0,20,30,.85), 0 0 4px rgba(0,0,0,.6); opacity: 0; transform: translateY(8px); transition: opacity 1.2s, transform 1.2s; }
   #movie .m-title, #movie .m-cap, #movie .m-end p, #movie .m-btns { opacity: 0; transform: translateY(10px); transition: opacity 1.6s ease, transform 1.6s ease; }
   #movie .show { opacity: 1 !important; transform: none !important; }
   #movie .m-title { position: absolute; left: 0; right: 0; top: 40%; text-align: center; padding: 0 16px; }
