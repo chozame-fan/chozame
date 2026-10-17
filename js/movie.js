@@ -75,7 +75,7 @@ class Music {
 }
 
 // entries: [{ title, sub, img, note }]
-export function playMemoryMovie({ name, entries, finale, onDone }) {
+export function playMemoryMovie({ name, entries, finale, onDone, heading, subheading, lines }) {
   const root = document.getElementById('movie');
   const A = root.querySelector('.m-img.a'), B = root.querySelector('.m-img.b');
   const cap = root.querySelector('.m-cap'), title = root.querySelector('.m-title'), end = root.querySelector('.m-end');
@@ -107,7 +107,7 @@ export function playMemoryMovie({ name, entries, finale, onDone }) {
   };
 
   // はじまり
-  title.innerHTML = `<div class="m-big">${name}の10年</div><div class="m-small">ふ化から、おとなになるまで</div>`;
+  title.innerHTML = `<div class="m-big">${heading || name + 'の10年'}</div><div class="m-small">${subheading || 'ふ化から、おとなになるまで'}</div>`;
   at(0.6, () => { title.className = 'm-title show'; });
   at(INTRO - 1.2, () => { title.className = 'm-title'; });
   // 思い出
@@ -117,11 +117,12 @@ export function playMemoryMovie({ name, entries, finale, onDone }) {
   at(tEnd, () => { cap.className = 'm-cap'; A.style.opacity = B.style.opacity = 0; });
   at(tEnd + 1.6, () => {
     end.hidden = false;
-    end.innerHTML = `<p class="l1">よくここまで育ったね。</p><p class="l2">ありがとう、${name}。</p><p class="l3">${finale}</p><div class="m-btns"><button id="movie-again">もう一度見る</button><button id="movie-close">閉じる</button></div>`;
+    const [ln1, ln2] = lines || ['よくここまで育ったね。', `ありがとう、${name}。`];
+    end.innerHTML = `<p class="l1">${ln1}</p><p class="l2">${ln2}</p><p class="l3">${finale}</p><div class="m-btns"><button id="movie-again">もう一度見る</button><button id="movie-close">閉じる</button></div>`;
     end.querySelectorAll('p').forEach((p, k) => setTimeout(() => p.classList.add('show'), 400 + k * 2600));
     setTimeout(() => end.querySelector('.m-btns').classList.add('show'), 400 + 3 * 2600);
     end.querySelector('#movie-close').onclick = () => close();
-    end.querySelector('#movie-again').onclick = () => { close(true); playMemoryMovie({ name, entries, finale, onDone }); };
+    end.querySelector('#movie-again').onclick = () => { close(true); playMemoryMovie({ name, entries, finale, onDone, heading, subheading, lines }); };
   });
   const close = (again) => {
     timers.forEach(clearTimeout);

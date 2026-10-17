@@ -657,7 +657,10 @@ function openZukan(tab = 'grow') {
   const got = (tab === 'grow' ? ZUKAN.filter(z => S.zukan[z.id]).length + '/' + ZUKAN.length : tab === 'food' ? Object.keys(S.foods).length + '/' + FOODS.length : '');
   $('#zukan-count').textContent = got ? `${got} 発見` : '';
   if (tab === 'grow') {
-    if (zukanDone(S)) { const b = document.createElement('button'); b.className = 'movie-btn'; b.textContent = `🎬 ${S.name}の思い出ムービーを見る`; b.onclick = () => startMovie(); body.appendChild(b); }
+    { const done = zukanDone(S), n = ZUKAN.filter(z => S.zukan[z.id]).length;
+      const b = document.createElement('button'); b.className = 'movie-btn';
+      b.textContent = done ? `🎬 ${S.name}の思い出ムービーを見る` : `🎬 お試し：ここまでの写真（${n}まい）で思い出ムービー`;
+      b.onclick = () => startMovie(!done); if (n >= 1) body.appendChild(b); }
     for (const z of ZUKAN) {
       const r = S.zukan[z.id];
       const card = document.createElement('div'); card.className = 'card' + (r ? '' : ' locked');
@@ -804,7 +807,7 @@ function offerMovie() {
   $('#movie-ask-text').innerHTML = `🎉 図鑑がぜんぶうまりました！<br><b>${S.name}</b>の思い出ムービーを見る？`;
   $('#movie-ask').hidden = false;
 }
-function startMovie() {
+function startMovie(trial = false) {
   $('#movie-ask').hidden = true; $('#zukan').classList.remove('open'); $('#detail').classList.remove('open');
   const st = S, L = len();
   const entries = ZUKAN.filter(z => st.zukan[z.id]).map(z => {
@@ -815,8 +818,9 @@ function startMovie() {
   const wasOn = audio.on; audio.stop();
   moviePlaying = true;
   $('#hud').hidden = true; $('#bottom').hidden = true; $('#ruler').hidden = true; $('#toasts').innerHTML = ''; toastQ = [];
-  playMemoryMovie({ name: st.name, entries, finale, onDone: () => {
-    moviePlaying = false; st.movieSeen = true; save();
+  const opts = trial ? { heading: `${st.name}の思い出`, subheading: `ここまでの${entries.length}まい（お試し）`, lines: ['ここまで大きくなったね。', `これからもよろしくね、${st.name}。`] } : {};
+  playMemoryMovie({ name: st.name, entries, finale, ...opts, onDone: () => {
+    moviePlaying = false; if (!trial) st.movieSeen = true; save();
     $('#hud').hidden = false; $('#bottom').hidden = false; $('#ruler').hidden = false;
     if (wasOn) audio.start();
     last = performance.now();
