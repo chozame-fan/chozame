@@ -174,6 +174,9 @@ function updateHand(dt) {
   if (!HF.active) { handClip.uClipOn.value = 0; return; }
   fish.group.updateMatrixWorld(); handClip.uFishInv.value.copy(fish.group.matrixWorld).invert();
   handClip.uClipOn.value = HF.phase === 'bite' || (HF.phase === 'leave' && HF.t < 0.6) ? 1 : 0;
+  { const L = len(), juv = 1 - Math.min(1, Math.max(0, (L - 30) / 60));
+    handClip.uMouthX.value = 0.5 - (0.15 + 0.04 * juv); handClip.uSnoutC.value = fish.u.uSnout.value;
+    handClip.uMouthR.value = HF.gabu ? 0.07 : 0.05 + 0.02 * F.mouth; }
   HF.t += dt;
   const h = HF.hand, tipY = T.h - HF.depth;
   const hs = h.userData.scale || 1, restY = tipY - h.userData.tip.y; // 指先が tipY に来る手首の高さ
@@ -193,7 +196,7 @@ function updateHand(dt) {
     const shake = HF.gabu ? Math.sin(HF.t * 7) * 1.4 : Math.sin(HF.t * 9) * 0.3;
     h.position.set(HF.base.x + shake, restY - tug, HF.base.z);
     h.rotation.z = shake * 0.02;
-    if (HF.t > (HF.gabu ? 3.2 : 2.3)) { HF.phase = 'leave'; HF.t = 0; F.mode = null; setMode(HF.gabu ? 'burst' : 'cruise'); }
+    if (HF.t > (HF.gabu ? 4 : 5)) { HF.phase = 'leave'; HF.t = 0; F.mode = null; setMode(HF.gabu ? 'burst' : 'cruise'); }
   } else if (HF.phase === 'leave') {
     const k = Math.min(1, HF.t / 1.2);
     h.position.y += dt * 45 * k;

@@ -10,16 +10,23 @@ const sleeveM = new THREE.MeshStandardMaterial({ color: '#2b3442', roughness: 0.
 
 // 魚の体の中に入った手の部分は描かない（口の中に入っているように見せる）
 // 魚の体を細長い楕円の筒として近似し、その中なら消す
-export const handClip = { uFishInv: { value: new THREE.Matrix4() }, uClipOn: { value: 0 } };
+export const handClip = { uFishInv: { value: new THREE.Matrix4() }, uClipOn: { value: 0 }, uSnoutC: { value: 0 }, uMouthX: { value: 0.32 }, uMouthR: { value: 0.05 } };
 for (const m of [skin, nailM, sleeveM]) {
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, handClip);
     sh.vertexShader = 'varying vec3 vWorldH;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWorldH = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = 'uniform mat4 uFishInv; uniform float uClipOn; varying vec3 vWorldH;\n' + sh.fragmentShader.replace('void main() {', `void main() {
+    sh.fragmentShader = 'uniform mat4 uFishInv; uniform float uClipOn; uniform float uSnoutC; uniform float uMouthX; uniform float uMouthR; varying vec3 vWorldH;\n' + sh.fragmentShader.replace('void main() {', `void main() {
       if (uClipOn > 0.5) {
         vec3 q = (uFishInv * vec4(vWorldH, 1.0)).xyz;
+        // 口のまわり：口の中に入った指先は見せない
+        vec3 dm = q - vec3(uMouthX, -0.03, 0.0);
+        if (dot(dm, dm) < uMouthR * uMouthR) discard;
+        // 反った鼻：鼻先ほど上にずれているので、そのぶん戻して比べる
+        float sBh = clamp(0.5 - q.x, 0.0, 1.0);
+        float hk = clamp((0.15 - sBh) / 0.15, 0.0, 1.0); hk *= hk;
+        q.y -= uSnoutC * hk * 0.055;
         float f = clamp(1.0 - pow((q.x - 0.1) / 0.42, 2.0), 0.0, 1.0);
-        float ry = 0.072 * sqrt(f) + 0.004, rz = 0.08 * sqrt(f) + 0.004;
+        float ry = 0.078 * sqrt(f) + 0.008, rz = 0.085 * sqrt(f) + 0.008;
         if (q.x > -0.35 && q.x < 0.5 && (q.y * q.y) / (ry * ry) + (q.z * q.z) / (rz * rz) < 1.0) discard;
       }`);
   };
