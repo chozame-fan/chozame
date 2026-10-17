@@ -1,6 +1,6 @@
 // オフラインでも開けるように、アプリのファイルを保存しておく。
 // 新しい版があればネットから取り、つながらない時は保存しておいた物を使う。
-const CACHE = 'chozame-v7';
+const CACHE = 'chozame-v8';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-180.png',
   './js/main.js', './js/fish.js', './js/world.js', './js/data.js', './js/others.js', './js/hand.js', './js/audio.js',
   './vendor/three.module.js', './vendor/three.core.js', './vendor/addons/BufferGeometryUtils.js'];
