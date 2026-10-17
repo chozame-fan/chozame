@@ -657,10 +657,7 @@ function openZukan(tab = 'grow') {
   const got = (tab === 'grow' ? ZUKAN.filter(z => S.zukan[z.id]).length + '/' + ZUKAN.length : tab === 'food' ? Object.keys(S.foods).length + '/' + FOODS.length : '');
   $('#zukan-count').textContent = got ? `${got} 発見` : '';
   if (tab === 'grow') {
-    { const done = zukanDone(S), n = ZUKAN.filter(z => S.zukan[z.id]).length;
-      const b = document.createElement('button'); b.className = 'movie-btn';
-      b.textContent = done ? `🎬 ${S.name}の思い出ムービーを見る` : `🎬 お試し：ここまでの写真（${n}まい）で思い出ムービー`;
-      b.onclick = () => startMovie(!done); if (n >= 1) body.appendChild(b); }
+    if (zukanDone(S)) { const b = document.createElement('button'); b.className = 'movie-btn'; b.textContent = `🎬 ${S.name}の思い出ムービーを見る`; b.onclick = () => startMovie(); body.appendChild(b); }
     for (const z of ZUKAN) {
       const r = S.zukan[z.id];
       const card = document.createElement('div'); card.className = 'card' + (r ? '' : ' locked');
