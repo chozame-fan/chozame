@@ -7,17 +7,42 @@ import { playRelease } from './release.js';
 import { playMemoryMovie } from './movie.js';
 import {
   HATCH_DAYS, expectedLength, weightOf, fmtWeight, fmtLength, fmtAge, tankFor,
-  FOODS, foodById, canEat, bestFood, ZUKAN, SOURCES, TANKS,
+  FOODS, foodById, canEat, bestFood, ZUKAN, SOURCES, TANKS, sexName,
 } from './data.js';
+import { tr, EN, LANG, setLang, applyStatic } from './i18n.js';
+applyStatic();
 
 const $ = (s) => document.querySelector(s);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 // ?test を付けると別のセーブ（確認用）を使う
 const SAVE_KEY = new URLSearchParams(location.search).has('test') ? 'chozame-ikusei-test' : 'chozame-ikusei-v1';
+// ---------------- 応援の合言葉 ----------------
+// 育てるのは10歳までずっと無料。合言葉で増えるのは、結果を変えない「物語カードの飾り」だけ
+const PRICE = tr('500円', '500 yen');
+const BUY_URL = ''; // 合言葉を売るページ（BOOTH）ができたら、ここにURLを入れる
+const LIC_KEY = 'chozame-license';
+// 合言葉そのものは書かず、合言葉から作った「指紋」だけを置く（合言葉を変える時は、ここに足していく）
+const LIC_HASH = ['13f596e36bb99b4ad4f954a6a9488fda0f2bee781ccb84bac6ad397b1c123fbb'];
+// ---------------- ベータ版のお知らせ ----------------
+const OFFICIAL_URL = 'https://chozame-fan.github.io/chozame/';
+const UPDATED = '11/3';
+const BETA = tr(`β版・毎日なおしています（${UPDATED} 更新）`, `Beta — improved every day (updated ${UPDATED})`);
+const NEWS = [ // 新しい順。直したら上に足す
+  ['11/3', tr('English に切りかえられるように（図鑑・お知らせ・物語カードも）', 'You can now play in English (book, news and story cards too)')],
+  ['11/3', tr('育てるのは10歳までずっと無料に。合言葉は物語カードの飾りだけ', 'Raising is now free all the way to age 10. Codes only add story-card decorations')],
+  ['11/3', tr('その子だけの「物語カード」（短いお話＋写真を画像で保存・共有）', 'A story card for each fish (a short story + photo to save or share)')],
+  ['11/3', tr('お知らせ・遊び方のきまり（配信・動画OK）・直してほしいことの入口', 'News, play rules (streaming and videos OK) and a place to send requests')],
+  ['10/17', tr('海への放流と、図鑑がうまった時の思い出ムービー', 'Releasing to the sea, and a memory movie when the book is complete')],
+  ['10/17', tr('指でなでる・なかよし度', 'Petting with your finger, and the bond meter')],
+  ['10/17', tr('3匹まで同時に育てられるように', 'Raise up to 3 fish at once')],
+];
+const SEP = tr('・', ' · ');
+const TAG = tr('#チョウザメ育成', '#SturgeonKeeper');
+const GAME = tr('チョウザメ育成', 'Sturgeon Keeper');
 // 1秒あたりに進むゲーム内の日数
 const SPEEDS = [
-  { d: 0, label: '一時停止' }, { d: 1 / 60, label: '1日＝1分' }, { d: 1 / 10, label: '1日＝10秒' },
-  { d: 1 / 2, label: '1日＝2秒' }, { d: 2.5, label: '1日＝0.4秒' },
+  { d: 0, label: tr('一時停止', 'Paused') }, { d: 1 / 60, label: tr('1日＝1分', '1 day = 1 min') }, { d: 1 / 10, label: tr('1日＝10秒', '1 day = 10 s') },
+  { d: 1 / 2, label: tr('1日＝2秒', '1 day = 2 s') }, { d: 2.5, label: tr('1日＝0.4秒', '1 day = 0.4 s') },
 ];
 
 // ---------------- セーブ ----------------
@@ -39,6 +64,7 @@ let R = null, S = null;
 try { R = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); } catch { R = null; }
 if (R && !R.list) R = { v: 2, active: 0, speed: R.speed ?? 2, list: [R] }; // 1匹だけの古いセーブを読みかえる
 if (R) { R.active = Math.min(R.active || 0, R.list.length - 1); S = R.list[R.active]; }
+const licensed = () => { if (R?.lic) return true; try { return localStorage.getItem(LIC_KEY) === '1'; } catch { return false; } };
 let resetting = false;
 function save() { try { if (R && !resetting) localStorage.setItem(SAVE_KEY, JSON.stringify(R)); } catch (e) { console.warn(e); } }
 setInterval(save, 5000);
@@ -89,7 +115,7 @@ function applyTank(announce) {
   others.build(T);
   for (const f of foods.splice(0)) scene.remove(f.mesh);
   if (first || !announce) { F.pos.set(0, Math.min(T.h * 0.3, 3), 0); }
-  else { F.pos.set(0, T.h * 0.3, 0); toast(`🏠 ${T.name}にお引っ越し！`); if (bigger) offerNewFish(S, T); }
+  else { F.pos.set(0, T.h * 0.3, 0); toast(tr(`🏠 ${T.name}にお引っ越し！`, `🏠 Moved to the ${T.name}!`)); if (bigger) offerNewFish(S, T); }
   egg.position.set(0, 0.16, 0);
   F.wanderT = 0;
 }
@@ -283,15 +309,15 @@ function updateFish(dt) {
 // ---------------- 餌 ----------------
 function feed(id, quiet) {
   const f = foodById[id];
-  if (S.dev < 0) { toast('🥚 卵の時期は餌はいりません。水温を16〜19℃に保ってね'); return; }
+  if (S.dev < 0) { toast(tr('🥚 卵の時期は餌はいりません。水温を16〜19℃に保ってね', '🥚 Eggs don\'t need food. Keep the water at 16–19°C')); return; }
   const L = len();
   const ok = canEat(f, S.dev, L);
   if (!quiet) {
     if (!ok) {
-      if (S.dev < 8) toast('まだ卵黄（お腹の栄養の袋）で育つ時期。口がまだ使えないので食べません');
-      else if (id === 'float') { toast('🤔 口が下向きなので、水面に浮く餌はほとんど食べられない…'); unlockFood('float'); }
-      else if (L < f.minL || S.dev < f.minD) toast(`まだ体が小さくて${f.name}は食べられないみたい`);
-      else toast(`体が大きくなって、${f.name}では小さすぎて見向きもしない`);
+      if (S.dev < 8) toast(tr('まだ卵黄（お腹の栄養の袋）で育つ時期。口がまだ使えないので食べません', 'Still living on its yolk sac — it can\'t use its mouth yet'));
+      else if (id === 'float') { toast(tr('🤔 口が下向きなので、水面に浮く餌はほとんど食べられない…', '🤔 Its mouth faces down, so it can hardly eat floating food…')); unlockFood('float'); }
+      else if (L < f.minL || S.dev < f.minD) toast(tr(`まだ体が小さくて${f.name}は食べられないみたい`, `Still too small to eat ${f.name.toLowerCase()}`));
+      else toast(tr(`体が大きくなって、${f.name}では小さすぎて見向きもしない`, `Too big now — ${f.name.toLowerCase()} are too small to bother with`));
     }
   }
   const n = Math.max(3, Math.round(f.count * (L > 60 ? 0.6 : 1)));
@@ -317,7 +343,7 @@ function unlockFood(id) {
   if (S.foods[id]) return;
   S.foods[id] = { age: S.age, len: len() };
   const f = foodById[id];
-  toast(id === 'float' ? '📗 えさ図鑑に「浮くエサ」の注意を記録' : `📗 えさ図鑑に「${f.name}」を追加！`);
+  toast(id === 'float' ? tr('📗 えさ図鑑に「浮くエサ」の注意を記録', '📗 Food book: note about floating food added') : tr(`📗 えさ図鑑に「${f.name}」を追加！`, `📗 Added "${f.name}" to the food book!`));
   save();
 }
 function updateFoods(dt, gdt) {
@@ -359,7 +385,7 @@ function sim(gdt, bg = false) {
     const rate = clamp((S.temp - 6) / 11, 0.3, 1.5);
     S.dev += gdt * rate; S.age = S.dev;
     if (S.temp > 21 || S.temp < 11) S.health -= gdt * 20; else S.health += gdt * 20;
-    if (S.dev >= 0) { S.dev = 0; S.age = 0; if (bg) toast(`🐣 ${S.name}がふ化した！`); else hatch(); }
+    if (S.dev >= 0) { S.dev = 0; S.age = 0; if (bg) toast(tr(`🐣 ${S.name}がふ化した！`, `🐣 ${S.name} hatched!`)); else hatch(); }
   } else {
     S.age += gdt;
     const L = len();
@@ -393,7 +419,7 @@ function sim(gdt, bg = false) {
   S.water = clamp(S.water, 0, 100); S.health = clamp(S.health, 0, 100);
   checkZukan(bg);
   // ほかの子の引っ越し
-  if (bg) { const want = tankFor(len()); if (want.id !== S.tank) { const bigger = TANKS.indexOf(want) > TANKS.findIndex(t => t.id === S.tank); S.tank = want.id; if (bigger) { toast(`🏠 ${S.name}が${want.name}にお引っ越し！`); offerNewFish(S, want); } } }
+  if (bg) { const want = tankFor(len()); if (want.id !== S.tank) { const bigger = TANKS.indexOf(want) > TANKS.findIndex(t => t.id === S.tank); S.tank = want.id; if (bigger) { toast(tr(`🏠 ${S.name}が${want.name}にお引っ越し！`, `🏠 ${S.name} moved to the ${want.name}!`)); offerNewFish(S, want); } } }
 }
 // 全員の時間を進める（見ていない子も育つ）
 function simAll(gdt) {
@@ -404,7 +430,7 @@ function simAll(gdt) {
 function hatch() {
   egg.visible = false;
   F.pos.set(egg.position.x, 0.6, egg.position.z);
-  toast('🐣 ふ化した！ お腹の黄色い袋が「卵黄のう」。しばらくはこの栄養で育つよ');
+  toast(tr('🐣 ふ化した！ お腹の黄色い袋が「卵黄のう」。しばらくはこの栄養で育つよ', '🐣 Hatched! The yellow bag on the belly is the yolk sac — it lives on that for a while'));
 }
 
 // ---------------- 図鑑 ----------------
@@ -417,7 +443,7 @@ function checkZukan(bg = false) {
       S.zukan[z.id] = { age: S.age, dev: S.dev, len: len(), img: null };
       if (bg) (S.snapLater ||= []).push(z.id); else pendingSnaps.push(z.id); // 見ていない子の写真は、次に見た時に撮る
       if (z.id === 'y3') { S.sexKnown = true; }
-      toast(`📘 ${R.list.length > 1 ? S.name + 'の' : ''}図鑑に「${z.title}」が追加された！`, true);
+      toast(tr(`📘 ${R.list.length > 1 ? S.name + 'の' : ''}図鑑に「${z.title}」が追加された！`, `📘 "${z.title}" added to ${R.list.length > 1 ? S.name + '\'s' : 'the'} book!`), true);
       save();
       if (!bg && zukanDone(S) && !S.movieSeen) setTimeout(offerMovie, 1800); // 写真を撮ってからすすめる
     }
@@ -459,8 +485,8 @@ const camTarget = new THREE.Vector3();
 const cam = { az: 0.6, el: 0.28, zoom: 1, mode: 'follow', dist: 3, view: 'free', lastTouch: -99 };
 // 見る角度（魚の向きに合わせて回り込む）
 const VIEWS = [
-  { id: 'free', label: '👀 自由' }, { id: 'side', label: '👀 横から' }, { id: 'top', label: '👀 背中' },
-  { id: 'belly', label: '👀 お腹' }, { id: 'face', label: '👀 顔' },
+  { id: 'free', label: tr('👀 自由', '👀 Free') }, { id: 'side', label: tr('👀 横から', '👀 Side') }, { id: 'top', label: tr('👀 背中', '👀 Back') },
+  { id: 'belly', label: tr('👀 お腹', '👀 Belly') }, { id: 'face', label: tr('👀 顔', '👀 Face') },
 ];
 const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 {
@@ -502,7 +528,7 @@ function petMove(x, y) {
     pet.dist = 0;
     if (pet.todayGain < 12) { pet.todayGain += 1; S.aff = Math.min(100, (S.aff || 0) + 1); }
     S.health = Math.min(100, S.health + 1.5);
-    if (Math.random() < 0.08) toast(['😊 ' + S.name + 'が、うれしそう！', '💕 なでなで、気持ちいいね', '✨ ' + S.name + 'が元気になった'][Math.floor(Math.random() * 3)]);
+    if (Math.random() < 0.08) toast(EN ? ['😊 ' + S.name + ' looks happy!', '💕 That feels nice', '✨ ' + S.name + ' perked up'][Math.floor(Math.random() * 3)] : ['😊 ' + S.name + 'が、うれしそう！', '💕 なでなで、気持ちいいね', '✨ ' + S.name + 'が元気になった'][Math.floor(Math.random() * 3)]);
   }
 }
 function spawnHeart(x, y) {
@@ -581,34 +607,35 @@ function nextToast() {
 }
 
 function stageName() {
-  if (S.dev < 0) return '受精卵';
-  if (S.dev < 9) return '仔魚（卵黄で成長中）';
-  if (S.dev < 27) return '仔魚';
-  if (len() < 16.5) return '稚魚';
-  if (S.age < 1095) return '若魚';
-  if (S.age < 2555) return '成長中';
-  return 'おとな';
+  if (S.dev < 0) return tr('受精卵', 'Egg');
+  if (S.dev < 9) return tr('仔魚（卵黄で成長中）', 'Larva (on yolk)');
+  if (S.dev < 27) return tr('仔魚', 'Larva');
+  if (len() < 16.5) return tr('稚魚', 'Fry');
+  if (S.age < 1095) return tr('若魚', 'Juvenile');
+  if (S.age < 2555) return tr('成長中', 'Growing');
+  return tr('おとな', 'Adult');
 }
 function bubbleText() {
-  if (S.dev < 0) return S.temp > 20 ? '（水があたたかすぎるかも…）' : S.dev > -HATCH_DAYS * 0.45 ? '（卵の中で何か動いた！）' : '（静かに育っている）';
-  if (S.health < 30) return 'ぐったり… 水と餌と水温を見直して';
-  if (S.dev < 9) return S.dev > 7 ? 'そろそろお腹の袋がなくなりそう' : '卵黄の栄養で育ち中';
-  if (S.satiety < 20) return 'お腹すいた…！';
-  if (S.water < 45) return '水がにごってきた…';
-  if (tempFactor() < 0.8) return S.temp < 18 ? '水が冷たくて元気が出ない' : '水があたたかすぎる…';
-  if (S.satiety > 90) return 'お腹いっぱい';
-  return ['ヒゲで底をさぐっている', 'ゆったり泳いでいる', '砂の上をすべるように泳ぐ'][Math.floor(performance.now() / 6000) % 3];
+  if (S.dev < 0) return S.temp > 20 ? tr('（水があたたかすぎるかも…）', '(The water may be too warm…)') : S.dev > -HATCH_DAYS * 0.45 ? tr('（卵の中で何か動いた！）', '(Something moved inside the egg!)') : tr('（静かに育っている）', '(Growing quietly)');
+  if (S.health < 30) return tr('ぐったり… 水と餌と水温を見直して', 'Very tired… check the water, food and temperature');
+  if (S.dev < 9) return S.dev > 7 ? tr('そろそろお腹の袋がなくなりそう', 'The yolk sac is almost gone') : tr('卵黄の栄養で育ち中', 'Growing on its yolk');
+  if (S.satiety < 20) return tr('お腹すいた…！', 'Hungry…!');
+  if (S.water < 45) return tr('水がにごってきた…', 'The water is getting cloudy…');
+  if (tempFactor() < 0.8) return S.temp < 18 ? tr('水が冷たくて元気が出ない', 'Too cold to feel lively') : tr('水があたたかすぎる…', 'The water is too warm…');
+  if (S.satiety > 90) return tr('お腹いっぱい', 'Full');
+  return (EN ? ['Feeling the bottom with its barbels', 'Swimming calmly', 'Gliding over the sand'] : ['ヒゲで底をさぐっている', 'ゆったり泳いでいる', '砂の上をすべるように泳ぐ'])[Math.floor(performance.now() / 6000) % 3];
 }
 function meter(id, v) { const el = $(id); el.style.width = `${clamp(v, 0, 100)}%`; el.style.background = v < 25 ? '#ff6b6b' : v < 50 ? '#ffc04d' : '#5fd3a0'; }
 // 性格をひとことで
+const personality = (t) => t.active > 1.15 ? tr('元気いっぱい', 'lively') : t.active < 0.8 ? tr('のんびり屋', 'laid-back') : tr('おだやか', 'gentle');
+const SPOT = EN ? { round: 'round spots', long: 'long spots', cluster: 'clustered dots', fine: 'fine spots' } : { round: '丸い斑点', long: '細長い斑点', cluster: '点のかたまり模様', fine: 'こまかい斑点' };
 function traitText(t) {
   const w = [];
-  w.push(t.active > 1.15 ? '元気いっぱい' : t.active < 0.8 ? 'のんびり屋' : 'おだやか');
-  if (t.curious > 1.2) w.push('好奇心おうせい');
-  if (t.sniffy > 1.2) w.push('においに敏感');
-  if (t.snout > 1.07) w.push('口先すらり'); else if (t.snout < 0.93) w.push('丸い口先');
-  const sp = { round: '丸い斑点', long: '細長い斑点', cluster: '点のかたまり模様', fine: 'こまかい斑点' }[t.spotShape];
-  return '性格：' + w.join('・') + ' ／ ' + sp;
+  w.push(personality(t));
+  if (t.curious > 1.2) w.push(tr('好奇心おうせい', 'curious'));
+  if (t.sniffy > 1.2) w.push(tr('においに敏感', 'keen nose'));
+  if (t.snout > 1.07) w.push(tr('口先すらり', 'slim snout')); else if (t.snout < 0.93) w.push(tr('丸い口先', 'round snout'));
+  return tr('性格：', 'Personality: ') + w.join(tr('・', ' · ')) + ' ／ ' + SPOT[t.spotShape];
 }
 function updateHUD() {
   const L = len();
@@ -617,19 +644,20 @@ function updateHUD() {
   $('#trait').textContent = traitText(ensureTraits(S));
   $('#stage').textContent = stageName();
   $('#age').textContent = fmtAge(S.age);
-  $('#len').textContent = S.dev < 0 ? '直径 3.2mm' : fmtLength(L);
+  $('#len').textContent = S.dev < 0 ? tr('直径 3.2mm', '3.2 mm across') : fmtLength(L);
   $('#wt').textContent = S.dev < 0 ? '' : fmtWeight(weightOf(L));
-  $('#sex').textContent = S.sexKnown ? (S.sex === 'メス' ? '♀ メス' : '♂ オス') : '性別 ？';
+  $('#sex').textContent = S.sexKnown ? (S.sex === 'メス' ? '♀ ' : '♂ ') + sexName(S.sex) : tr('性別 ？', 'Sex ?');
   meter('#m-sat', S.dev < 9 ? 100 : S.satiety); meter('#m-water', S.water); meter('#m-health', S.health);
   { const el = $('#m-aff'); el.style.width = `${clamp(S.aff || 0, 0, 100)}%`; el.style.background = '#ff8fb3'; }
-  $('#sat-label').textContent = S.dev < 9 ? '卵黄' : 'おなか';
+  $('#sat-label').textContent = S.dev < 9 ? tr('卵黄', 'Yolk') : tr('おなか', 'Food');
   $('#temp-val').textContent = `${S.temp}℃`;
-  $('#temp-ok').textContent = S.dev < 9 ? '適温 16〜19℃' : '適温 18〜22℃';
+  $('#temp-ok').textContent = tr('適温 ', 'Best ') + (S.dev < 9 ? '16〜19℃' : '18〜22℃');
   $('#temp-ok').className = tempFactor() < 1 ? 'warn' : '';
   $('#bubble').textContent = bubbleText();
   $('#tank-name').textContent = T.name;
+  $('#beta').textContent = BETA;
   const lag = S.dev >= 9 ? expectedLength(S.age) : 0;
-  $('#pace').textContent = S.dev >= 9 && lag > L * 1.05 ? `標準より少し小さめ（標準 ${fmtLength(lag)}）` : '';
+  $('#pace').textContent = S.dev >= 9 && lag > L * 1.05 ? tr(`標準より少し小さめ（標準 ${fmtLength(lag)}）`, `A bit small (typical: ${fmtLength(lag)})`) : '';
 }
 
 function buildFoodMenu() {
@@ -653,49 +681,82 @@ function setSpeed(i) {
   R.speed = i;
   document.querySelectorAll('#speed button').forEach((b, k) => b.classList.toggle('on', k === i));
   $('#speed-label').textContent = SPEEDS[i].label;
-  if (i >= 3 && !S.autofeed && S.dev >= 0 && !starting) toast('⏩ 速くする時は「おまかせ」をONにすると安心');
+  if (i >= 3 && !S.autofeed && S.dev >= 0 && !starting) toast(tr('⏩ 速くする時は「おまかせ」をONにすると安心', '⏩ When going fast, turn on "Auto" to be safe'));
 }
 
 // 図鑑
 function openZukan(tab = 'grow') {
-  $('#zukan h2').textContent = R.list.length > 1 ? `📘 ${S.name}の図鑑` : '📘 チョウザメ図鑑';
+  $('#zukan h2').textContent = R.list.length > 1 ? tr(`📘 ${S.name}の図鑑`, `📘 ${S.name}'s book`) : tr('📘 チョウザメ図鑑', '📘 Sturgeon Book');
   $('#zukan').classList.add('open');
   document.querySelectorAll('#zukan .tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   const body = $('#zukan-body'); body.innerHTML = '';
   const got = (tab === 'grow' ? ZUKAN.filter(z => S.zukan[z.id]).length + '/' + ZUKAN.length : tab === 'food' ? Object.keys(S.foods).length + '/' + FOODS.length : '');
-  $('#zukan-count').textContent = got ? `${got} 発見` : '';
+  $('#zukan-count').textContent = got ? tr(`${got} 発見`, `${got} found`) : '';
   if (tab === 'grow') {
-    if (zukanDone(S)) { const b = document.createElement('button'); b.className = 'movie-btn'; b.textContent = `🎬 ${S.name}の思い出ムービーを見る`; b.onclick = () => startMovie(); body.appendChild(b); }
+    { const b = document.createElement('button'); b.className = 'story-btn'; b.textContent = tr(`🖼 ${S.name}の物語カードを作る`, `🖼 Make ${S.name}'s story card`); b.onclick = () => showStoryCard(); body.appendChild(b); }
+    if (zukanDone(S)) { const b = document.createElement('button'); b.className = 'movie-btn'; b.textContent = tr(`🎬 ${S.name}の思い出ムービーを見る`, `🎬 Watch ${S.name}'s memory movie`); b.onclick = () => startMovie(); body.appendChild(b); }
     for (const z of ZUKAN) {
       const r = S.zukan[z.id];
       const card = document.createElement('div'); card.className = 'card' + (r ? '' : ' locked');
       card.innerHTML = r
-        ? `<div class="ph">${r.img ? `<img src="${r.img}" alt="">` : '<div class="noimg">📷</div>'}</div><div class="ti">${z.title}</div><div class="me">${fmtAge(r.age)}・${r.age < 0 ? '直径3.2mm' : fmtLength(r.len)}</div>`
+        ? `<div class="ph">${r.img ? `<img src="${r.img}" alt="">` : '<div class="noimg">📷</div>'}</div><div class="ti">${z.title}</div><div class="me">${fmtAge(r.age)}${SEP}${r.age < 0 ? tr('直径3.2mm', '3.2 mm') : fmtLength(r.len)}</div>`
         : `<div class="ph"><div class="noimg">？</div></div><div class="ti">？？？</div><div class="me">${z.hint}</div>`;
-      if (r) card.onclick = () => showDetail(z.title, r.img, `<p>${z.text}</p><p class="mine">🐟 ${S.name}の記録：${fmtAge(r.age)}・${r.age < 0 ? '直径3.2mm' : '全長 ' + fmtLength(r.len) + '・' + fmtWeight(weightOf(r.len))}</p>${z.id === 'y3' ? `<p class="mine">検査の結果：<b>${S.sex}</b>でした</p>` : ''}`);
+      if (r) card.onclick = () => showDetail(z.title, r.img, `<p>${z.text}</p><p class="mine">🐟 ${tr(`${S.name}の記録：`, `${S.name}'s record: `)}${fmtAge(r.age)}${SEP}${r.age < 0 ? tr('直径3.2mm', '3.2 mm across') : tr('全長 ', 'length ') + fmtLength(r.len) + SEP + fmtWeight(weightOf(r.len))}</p>${z.id === 'y3' ? `<p class="mine">${tr(`検査の結果：<b>${S.sex}</b>でした`, `The check says: <b>${sexName(S.sex)}</b>`)}</p>` : ''}`);
       body.appendChild(card);
     }
   } else if (tab === 'food') {
     for (const f of FOODS) {
       const r = S.foods[f.id];
       const card = document.createElement('div'); card.className = 'card food-card' + (r ? '' : ' locked');
-      card.innerHTML = r ? `<div class="ph"><div class="noimg big">${f.icon}</div></div><div class="ti">${f.name}</div><div class="me">${f.id === 'float' ? '⚠ 食べにくい' : '初めて食べた：' + fmtAge(r.age)}</div>`
-        : `<div class="ph"><div class="noimg">？</div></div><div class="ti">？？？</div><div class="me">まだ食べていない</div>`;
-      if (r) card.onclick = () => showDetail(f.name, null, `<p>${f.zukan}</p><p class="mine">食べられる目安：${f.id === 'float' ? 'ほぼ食べない' : `全長 ${f.minL}cm〜${f.maxL > 900 ? '' : f.maxL + 'cm'}`}</p>`);
+      card.innerHTML = r ? `<div class="ph"><div class="noimg big">${f.icon}</div></div><div class="ti">${f.name}</div><div class="me">${f.id === 'float' ? tr('⚠ 食べにくい', '⚠ hard to eat') : tr('初めて食べた：', 'First eaten: ') + fmtAge(r.age)}</div>`
+        : `<div class="ph"><div class="noimg">？</div></div><div class="ti">？？？</div><div class="me">${tr('まだ食べていない', 'not eaten yet')}</div>`;
+      if (r) card.onclick = () => showDetail(f.name, null, `<p>${f.zukan}</p><p class="mine">${tr('食べられる目安：', 'Can eat at: ')}${f.id === 'float' ? tr('ほぼ食べない', 'hardly ever') : `${tr('全長 ', 'length ')}${f.minL}cm〜${f.maxL > 900 ? '' : f.maxL + 'cm'}`}</p>`);
       body.appendChild(card);
     }
   } else if (tab === 'memory') {
     const list = R.released || [];
-    if (!list.length) body.innerHTML = `<div class="src"><p>まだ放流した子はいません。全長${RELEASE_MIN}cmを過ぎると、情報欄の「🌊 海へ放流する」から海へ送り出せます。</p></div>`;
+    if (!list.length) body.innerHTML = `<div class="src"><p>${tr(`まだ放流した子はいません。全長${RELEASE_MIN}cmを過ぎると、情報欄の「🌊 海へ放流する」から海へ送り出せます。`, `No fish released yet. Once a fish is over ${RELEASE_MIN} cm, use "🌊 Release to the sea" in the info panel.`)}</p></div>`;
     for (const r of [...list].reverse()) {
       const card = document.createElement('div'); card.className = 'card';
       const d = new Date(r.date);
-      card.innerHTML = `<div class="ph">${r.img ? `<img src="${r.img}" alt="">` : '<div class="noimg">🌊</div>'}</div><div class="ti">${r.name}</div><div class="me">${fmtAge(r.age)}・${fmtLength(r.len)}<br>${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} 放流</div>`;
-      card.onclick = () => showDetail(`${r.name}の思い出`, r.img, `<p>${fmtAge(r.age)}・全長 ${fmtLength(r.len)}・${fmtWeight(r.w)}${r.sex ? `・${r.sex}` : ''}で、海へ放流しました。</p><p class="mine">図鑑の記録 ${r.zukan} 個。大きく育ってね。元気でね！</p>`);
+      card.innerHTML = `<div class="ph">${r.img ? `<img src="${r.img}" alt="">` : '<div class="noimg">🌊</div>'}</div><div class="ti">${r.name}</div><div class="me">${fmtAge(r.age)}${SEP}${fmtLength(r.len)}<br>${tr(`${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} 放流`, `released ${fmtDate(d)}`)}</div>`;
+      card.onclick = () => showDetail(tr(`${r.name}の思い出`, `Memories of ${r.name}`), r.img, `<p>${tr(`${fmtAge(r.age)}・全長 ${fmtLength(r.len)}${SEP}${fmtWeight(r.w)}${r.sex ? `・${r.sex}` : ''}で、海へ放流しました。`, `Released to the sea at ${fmtAge(r.age)}, ${fmtLength(r.len)}, ${fmtWeight(r.w)}${r.sex ? `, ${sexName(r.sex)}` : ''}.`)}</p><p class="mine">${tr(`図鑑の記録 ${r.zukan} 個。大きく育ってね。元気でね！`, `${r.zukan} book entries. Grow up big. Take care!`)}</p>${r.story ? `<button class="story-btn" data-rel="${list.indexOf(r)}">${tr('🖼 物語カードを作る', '🖼 Make a story card')}</button>` : ''}`);
       body.appendChild(card);
     }
+  } else if (tab === 'news') {
+    const url = OFFICIAL_URL.replace('https://', '').replace(/\/$/, '');
+    body.innerHTML = EN ? `<div class="src"><h3>${BETA}</h3><p>This game is still being built. I keep improving it little by little, listening to players.</p>
+        <h3>Recent changes</h3><ul class="news">${NEWS.map(([d, t]) => `<li><span class="d">${d}</span>${t}</li>`).join('')}</ul></div>
+      <div class="src move"><h3>Requests and ideas</h3><p>Tell me what you noticed. Pressing the button opens an X (Twitter) post with ${TAG} (GitHub users can also post <a href="https://github.com/chozame-fan/chozame/issues/new" target="_blank" rel="noopener">here</a>).</p>
+        <textarea id="fb-text" maxlength="200" placeholder="e.g. The feed button is hard to tap / I want to know male or female sooner"></textarea>
+        <div class="row"><button id="fb-x">Send on X</button></div></div>
+      <div class="src move"><h3>Play rules (streaming, videos, screenshots OK)</h3><ul>
+        <li>Streams, let's plays, videos and screenshots of this game are <b>free to make without asking</b> — monetized channels and TV are fine too.</li>
+        <li>Putting the official URL in your description makes the maker happy.</li>
+        <li>The only official URL is <b>${url}</b>. This game never asks for an ID or password.</li></ul></div>`
+      : `<div class="src"><h3>${BETA}</h3><p>このゲームはまだ作っている途中です。遊んだ人の声を聞きながら、少しずつ直しています。</p>
+        <h3>最近なおしたこと</h3><ul class="news">${NEWS.map(([d, t]) => `<li><span class="d">${d}</span>${t}</li>`).join('')}</ul></div>
+      <div class="src move"><h3>直してほしいこと・こうしてほしいこと</h3><p>気づいたことを書いて送ってください。Xに「${TAG}」を付けて投稿する画面が開きます（GitHubを使っている人は<a href="https://github.com/chozame-fan/chozame/issues/new" target="_blank" rel="noopener">こちら</a>からでもOK）。</p>
+        <textarea id="fb-text" maxlength="200" placeholder="例：餌のボタンが押しにくい／オスメスが分かるのをもっと早く"></textarea>
+        <div class="row"><button id="fb-x">Xで送る</button></div></div>
+      <div class="src move"><h3>遊び方のきまり（配信・動画・スクショOK）</h3><ul>
+        <li>このゲームの配信・実況・動画・スクショは、<b>許可なしで自由にどうぞ</b>。収益化しているチャンネルやテレビでもOKです。</li>
+        <li>説明欄に公式URLを入れてもらえると、作っている人がよろこびます。</li>
+        <li>公式のURLは <b>${url}</b> の1つだけです。このゲームがIDやパスワードを聞くことはありません。</li></ul></div>`;
   } else {
-    body.innerHTML = `<div class="src"><p>このゲームの数字は、シベリアチョウザメを中心に下の資料を参考にした<b>目安</b>です。チョウザメは種類・水温・飼い方で育ち方が大きく変わります。成長の数字（1歳〜10歳の全長）は養殖の一般的な目安をもとにゲーム用に決めたものです。</p><ul>${SOURCES.map(([t, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${t}</a></li>`).join('')}</ul></div>
+    const langRow = `<div class="src lang-row"><h3>言語 / Language</h3><div class="row"><button data-lang="ja" class="${EN ? '' : 'on'}">日本語</button><button data-lang="en" class="${EN ? 'on' : ''}">English</button></div></div>`;
+    body.innerHTML = langRow + (EN ? `<div class="src"><p>The numbers in this game are <b>rough guides</b> based on the sources below, mainly about Siberian sturgeon. How sturgeon grow changes a lot with species, water temperature and care. The growth numbers (length at age 1–10) were set for the game from common farming guides.</p><ul>${SOURCES.map(([t, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${t}</a></li>`).join('')}</ul></div>
+      <div class="src move">
+        <h3>Move your save (computer ⇄ phone)</h3>
+        <p>Each device has its own save. Press "Export" here → copy the text → paste it into "Import" on the other device to keep playing with the same fish.</p>
+        <div class="row"><button id="exp-photo">Export (with photos)</button><button id="exp-lite">Export (no photos, light)</button></div>
+        <textarea id="save-code" placeholder="Exported text appears here / paste text from the other device"></textarea>
+        <div class="row"><button id="save-copy">Copy</button><button id="save-load">Import</button></div>
+        <p id="save-msg"></p>
+      </div>
+      <div class="src"><h3>Supporter code</h3><p>Raising your fish is free all the way to age 10. A supporter code (${PRICE}) only adds story-card decorations (Sakura, Snow, Gold) — your fish grow the same either way.<br>${licensed() ? '✅ Code entered. All decorations are unlocked. Thank you!' : '<button id="set-key">🔑 Enter a code</button>'}</p></div>
+      <div class="src"><button id="btn-reset">Start over (all fish, new egg)</button><p id="reset-msg"></p></div>`
+    : `<div class="src"><p>このゲームの数字は、シベリアチョウザメを中心に下の資料を参考にした<b>目安</b>です。チョウザメは種類・水温・飼い方で育ち方が大きく変わります。成長の数字（1歳〜10歳の全長）は養殖の一般的な目安をもとにゲーム用に決めたものです。</p><ul>${SOURCES.map(([t, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${t}</a></li>`).join('')}</ul></div>
       <div class="src move">
         <h3>セーブの引っ越し（Mac ⇄ スマホ）</h3>
         <p>セーブは開いている機械ごとに別々です。こちらで「書き出す」→ 出てきた文字をコピー → 引っ越し先の「読み込む」に貼り付けると、同じ子たちの続きから遊べます。</p>
@@ -704,7 +765,8 @@ function openZukan(tab = 'grow') {
         <div class="row"><button id="save-copy">コピー</button><button id="save-load">読み込む</button></div>
         <p id="save-msg"></p>
       </div>
-      <div class="src"><button id="btn-reset">最初からやり直す（全部の子・新しい卵）</button><p id="reset-msg"></p></div>`;
+      <div class="src"><h3>応援の合言葉</h3><p>育てるのは10歳まで、ずっと無料です。合言葉（${PRICE}）で増えるのは物語カードの飾り（さくら・雪・金）だけで、育ち方は変わりません。<br>${licensed() ? '✅ 合言葉は入力ずみです。飾りが全部使えます。ありがとう！' : '<button id="set-key">🔑 合言葉を入れる</button>'}</p></div>
+      <div class="src"><button id="btn-reset">最初からやり直す（全部の子・新しい卵）</button><p id="reset-msg"></p></div>`);
   }
 }
 function showDetail(title, img, html) {
@@ -717,16 +779,20 @@ function showDetail(title, img, html) {
 // ---------------- はじまり ----------------
 function wireUI() {
   $('#movie-yes').onclick = () => startMovie();
-  $('#movie-no').onclick = () => { $('#movie-ask').hidden = true; toast('図鑑の「成長の記録」から、いつでも見られるよ'); };
+  $('#lock-ok').onclick = enterCode;
+  $('#lock-code').onkeydown = (e) => { if (e.key === 'Enter') enterCode(); };
+  $('#lock-close').onclick = () => { $('#lock').hidden = true; toast(tr('図鑑の「参考にした資料」から、いつでも入れられます', 'You can enter it any time in Book → Sources & settings')); };
+  $('#lock-buy').onclick = () => { if (BUY_URL) open(BUY_URL, '_blank', 'noopener'); else $('#lock-msg').textContent = tr('販売ページは準備中です。もう少しお待ちください', 'The shop page is not ready yet. Please wait a little'); };
+  $('#movie-no').onclick = () => { $('#movie-ask').hidden = true; toast(tr('図鑑の「成長の記録」から、いつでも見られるよ', 'You can watch it any time in Book → Growth')); };
   $('#btn-release').onclick = (e) => { e.stopPropagation(); askRelease(); };
   $('#release-yes').onclick = () => startRelease();
   $('#release-no').onclick = () => { $('#release-ask').hidden = true; };
-  $('#release-new').onclick = () => afterRelease($('#release-new-name').value || ['チョウ子', 'チョウ吉', 'チョウ美', 'チョウ丸'][(R.released?.length || 0) % 4]);
+  $('#release-new').onclick = () => afterRelease($('#release-new-name').value || (EN ? ['Stella', 'Rocky', 'Pearl', 'Barbel'] : ['チョウ子', 'チョウ吉', 'チョウ美', 'チョウ丸'])[(R.released?.length || 0) % 4]);
   $('#release-close').onclick = () => afterRelease(null);
   // 水の音：画面を触った後でないと鳴らせないので、ボタンで始める
   const sndOn = () => { try { return localStorage.getItem('chozame-sound') !== '0'; } catch { return true; } };
-  const setSnd = (on) => { if (on) audio.start(); else audio.stop(); $('#snd').textContent = on ? '🔊 水の音 ON' : '🔇 水の音 OFF'; $('#snd').classList.toggle('on', on); try { localStorage.setItem('chozame-sound', on ? '1' : '0'); } catch {} };
-  $('#snd').textContent = '🔇 水の音 OFF';
+  const setSnd = (on) => { if (on) audio.start(); else audio.stop(); $('#snd').textContent = on ? tr('🔊 水の音 ON', '🔊 Sound ON') : tr('🔇 水の音 OFF', '🔇 Sound OFF'); $('#snd').classList.toggle('on', on); try { localStorage.setItem('chozame-sound', on ? '1' : '0'); } catch {} };
+  $('#snd').textContent = tr('🔇 水の音 OFF', '🔇 Sound OFF');
   $('#snd').onclick = (e) => { e.stopPropagation(); setSnd(!audio.on); };
   const first = (e) => { removeEventListener('pointerdown', first); if (e.target.id !== 'snd' && sndOn() && !audio.on) setSnd(true); };
   addEventListener('pointerdown', first);
@@ -737,29 +803,41 @@ function wireUI() {
   buildFoodMenu();
   $('#btn-food').onclick = () => { refreshFoodMenu(); $('#food-sheet').classList.toggle('open'); };
   $('#food-close').onclick = () => $('#food-sheet').classList.remove('open');
-  $('#btn-water').onclick = () => { S.water = Math.min(100, S.water + 45); for (const f of foods.filter(f => f.settled)) { scene.remove(f.mesh); foods.splice(foods.indexOf(f), 1); } toast('💧 水を半分入れかえた。食べ残しも取りのぞいた'); };
+  $('#btn-water').onclick = () => { S.water = Math.min(100, S.water + 45); for (const f of foods.filter(f => f.settled)) { scene.remove(f.mesh); foods.splice(foods.indexOf(f), 1); } toast(tr('💧 水を半分入れかえた。食べ残しも取りのぞいた', '💧 Changed half the water and removed leftovers')); };
   $('#btn-zukan').onclick = () => openZukan('grow');
   $('#zukan-close').onclick = () => $('#zukan').classList.remove('open');
   document.querySelectorAll('#zukan .tabs button').forEach(b => b.onclick = () => openZukan(b.dataset.tab));
   $('#detail-close').onclick = () => $('#detail').classList.remove('open');
   document.querySelectorAll('#speed button').forEach((b, i) => b.onclick = () => setSpeed(i));
-  $('#auto').onchange = (e) => { S.autofeed = e.target.checked; toast(S.autofeed ? '🍽 おまかせ ON：成長に合った餌と水かえを自動でします' : 'おまかせ OFF：自分で餌と水かえをしよう'); };
+  $('#auto').onchange = (e) => { S.autofeed = e.target.checked; toast(S.autofeed ? tr('🍽 おまかせ ON：成長に合った餌と水かえを自動でします', '🍽 Auto ON: the right food and water changes, automatically') : tr('おまかせ OFF：自分で餌と水かえをしよう', 'Auto OFF: feed and change the water yourself')); };
   $('#temp').oninput = (e) => { S.temp = +e.target.value; };
   $('#btn-view').onclick = () => {
     const i = (VIEWS.findIndex(v => v.id === cam.view) + 1) % VIEWS.length;
-    cam.view = VIEWS[i].id; cam.mode = 'follow'; $('#btn-cam').innerHTML = '🎥<span class="lbl"> 追いかけ</span>';
+    cam.view = VIEWS[i].id; cam.mode = 'follow'; $('#btn-cam').innerHTML = `🎥<span class="lbl"> ${tr('追いかけ', 'Follow')}</span>`;
     $('#btn-view').innerHTML = VIEWS[i].label.replace('👀 ', '👀<span class="lbl"> ') + '</span>';
-    toast(VIEWS[i].label.replace('👀 ', '見る角度：'));
+    toast(VIEWS[i].label.replace('👀 ', tr('見る角度：', 'View: ')));
   };
-  $('#btn-cam').onclick = () => { cam.mode = cam.mode === 'follow' ? 'tank' : 'follow'; cam.zoom = 1; $('#btn-cam').innerHTML = cam.mode === 'follow' ? '🎥<span class="lbl"> 追いかけ</span>' : '🎥<span class="lbl"> 水槽全体</span>'; toast(cam.mode === 'follow' ? 'カメラ：追いかけ' : 'カメラ：水槽全体'); };
+  $('#btn-cam').onclick = () => { cam.mode = cam.mode === 'follow' ? 'tank' : 'follow'; cam.zoom = 1; $('#btn-cam').innerHTML = `🎥<span class="lbl"> ${cam.mode === 'follow' ? tr('追いかけ', 'Follow') : tr('水槽全体', 'Tank')}</span>`; toast(cam.mode === 'follow' ? tr('カメラ：追いかけ', 'Camera: follow') : tr('カメラ：水槽全体', 'Camera: whole tank')); };
   // やり直し：確認の小窓は使えない場所もあるので、2回押して決める
   let resetArm = 0;
   document.body.addEventListener('click', (e) => {
     const id = e.target.id;
+    if (id === 'set-key') { $('#zukan').classList.remove('open'); showLock(); }
+    if (id === 'card-share') shareCard();
+    if (id === 'card-save') saveCard();
+    if (id === 'card-x') openX(lastCard.text);
+    const deco = e.target.dataset?.deco;
+    if (deco) pickDeco(deco);
+    const lang = e.target.dataset?.lang;
+    if (lang && lang !== LANG) { save(); setLang(lang); return; }
+    if (id === 'fb-x') { const t = $('#fb-text').value.trim(); if (!t) { $('#fb-text').placeholder = tr('ここに書いてから押してください', 'Write something first, then press'); return; } openX(tr(`【チョウザメ育成へのお願い】${t}\n${TAG}`, `[Request for Sturgeon Keeper] ${t}\n${TAG}`)); }
+    if (id === 'beta') openZukan('news');
+    const rel = e.target.dataset?.rel;
+    if (rel !== undefined && R.released?.[+rel]) showStoryCard(R.released[+rel]); // 放流後の画面は閉じずに、その上に出す
     if (id === 'btn-reset') {
       if (Date.now() - resetArm < 5000) { resetting = true; try { localStorage.removeItem(SAVE_KEY); } catch {} location.reload(); return; }
-      resetArm = Date.now(); e.target.textContent = 'もう一度押すと全部消えます（5秒以内）';
-      setTimeout(() => { if (e.target.isConnected) e.target.textContent = '最初からやり直す（全部の子・新しい卵）'; }, 5000);
+      resetArm = Date.now(); e.target.textContent = tr('もう一度押すと全部消えます（5秒以内）', 'Press again within 5 s to erase everything');
+      setTimeout(() => { if (e.target.isConnected) e.target.textContent = tr('最初からやり直す（全部の子・新しい卵）', 'Start over (all fish, new egg)'); }, 5000);
     }
     // セーブの引っ越し
     if (id === 'exp-photo' || id === 'exp-lite') {
@@ -768,11 +846,11 @@ function wireUI() {
       if (id === 'exp-lite') for (const st of data.list) for (const z of Object.values(st.zukan)) z.img = null;
       const code = 'CZ1:' + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
       $('#save-code').value = code;
-      $('#save-msg').textContent = `書き出しました（${Math.round(code.length / 1024)}KB）。「コピー」を押して、引っ越し先に貼り付けてください。`;
+      $('#save-msg').textContent = tr(`書き出しました（${Math.round(code.length / 1024)}KB）。「コピー」を押して、引っ越し先に貼り付けてください。`, `Exported (${Math.round(code.length / 1024)} KB). Press "Copy" and paste it on the other device.`);
     }
     if (id === 'save-copy') {
       const t = $('#save-code'); t.select();
-      navigator.clipboard?.writeText(t.value).then(() => { $('#save-msg').textContent = 'コピーしました'; }).catch(() => { $('#save-msg').textContent = '文字を選んだ状態にしました。長押しでコピーしてください'; });
+      navigator.clipboard?.writeText(t.value).then(() => { $('#save-msg').textContent = tr('コピーしました', 'Copied'); }).catch(() => { $('#save-msg').textContent = tr('文字を選んだ状態にしました。長押しでコピーしてください', 'The text is selected. Long-press to copy it'); });
     }
     if (id === 'save-load') {
       try {
@@ -780,9 +858,9 @@ function wireUI() {
         if (!txt.startsWith('CZ1:')) throw new Error();
         const data = JSON.parse(decodeURIComponent(escape(atob(txt.slice(4)))));
         if (!data.list?.length) throw new Error();
-        if (e.target.dataset.arm !== '1') { e.target.dataset.arm = '1'; e.target.textContent = 'もう一度押すと上書きします'; $('#save-msg').textContent = `${data.list.map(s => s.name).join('・')} を読み込みます。今のセーブは消えます。`; return; }
+        if (e.target.dataset.arm !== '1') { e.target.dataset.arm = '1'; e.target.textContent = tr('もう一度押すと上書きします', 'Press again to overwrite'); $('#save-msg').textContent = tr(`${data.list.map(s => s.name).join('・')} を読み込みます。今のセーブは消えます。`, `This will load ${data.list.map(s => s.name).join(', ')}. Your current save will be erased.`); return; }
         R = data; S = R.list[R.active || 0]; save(); resetting = true; location.reload();
-      } catch { $('#save-msg').textContent = '読み込めませんでした。「CZ1:」で始まる文字をまるごと貼り付けてください。'; }
+      } catch { $('#save-msg').textContent = tr('読み込めませんでした。「CZ1:」で始まる文字をまるごと貼り付けてください。', 'Could not import. Paste the whole text starting with "CZ1:".'); }
     }
   });
 }
@@ -800,16 +878,171 @@ function start() {
   pickWander();
   $('#hud').hidden = false; $('#bottom').hidden = false;
   checkZukan();
-  if (S.dev < 0 && Object.keys(S.zukan).length <= 1) toast('🥚 チョウザメの受精卵。ふ化まで約130時間（17℃のとき）');
+  if (S.dev < 0 && Object.keys(S.zukan).length <= 1) toast(tr('🥚 チョウザメの受精卵。ふ化まで約130時間（17℃のとき）', '🥚 A sturgeon egg. About 130 hours to hatch (at 17°C)'));
   renderTabs();
   starting = false;
 }
+
+// ---------------- 合言葉 ----------------
+function showLock() {
+  if (licensed() || releasing || moviePlaying) return;
+  $('#lock-text').innerHTML = tr(`育てるのは10歳まで、ずっと無料です。<br><b>応援の合言葉（${PRICE}）</b>を入れると、物語カードの飾り（さくら・雪・金）が使えるようになります。<br><small>払っても、育ち方や結果は変わりません。一度入れれば、このスマホでずっと使えます。</small>`,
+    `Raising your fish is free all the way to age 10.<br>A <b>supporter code (${PRICE})</b> unlocks story-card decorations (Sakura, Snow, Gold).<br><small>Paying never changes how your fish grow. Enter it once and it stays on this device.</small>`);
+  $('#lock-msg').textContent = ''; $('#lock-code').value = '';
+  $('#lock').hidden = false;
+}
+async function checkCode(txt) {
+  const norm = txt.normalize('NFKC').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('chozame:' + norm));
+  return LIC_HASH.includes([...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join(''));
+}
+async function enterCode() {
+  const txt = $('#lock-code').value.trim();
+  if (!txt) { $('#lock-msg').textContent = tr('合言葉を入れてください', 'Please enter a code'); return; }
+  let ok = false;
+  try { ok = await checkCode(txt); } catch { $('#lock-msg').textContent = tr('この画面では確かめられませんでした。ホーム画面のアプリから入れてください', 'Could not check it here. Please enter it from the home-screen app'); return; }
+  if (!ok) { $('#lock-msg').textContent = tr('合言葉がちがうようです。もう一度たしかめてください', 'That code doesn\'t look right. Please check it again'); return; }
+  R.lic = true; try { localStorage.setItem(LIC_KEY, '1'); } catch {}
+  save();
+  $('#lock').hidden = true;
+  audio.chime();
+  toast(tr('🔓 合言葉OK！ 物語カードの飾りが全部使えます。ありがとう！', '🔓 Code OK! All card decorations are unlocked. Thank you!'), true);
+  if (lastCard && $('#detail').classList.contains('open')) showStoryCard(lastCard.rec);
+}
+
+// ---------------- 物語カード ----------------
+// その子だけの短いお話（個性・図鑑の記録・なかよし度から作る）
+const STORY_EV = EN ? [
+  ['barbel', a => `grew barbels (${fmtAge(a)})`], ['scuteAll', a => `got its full armor (${fmtAge(a)})`],
+  ['seed', a => `grew bigger than a hand (${fmtAge(a)})`], ['y1', () => 'turned 1'],
+  ['y3', () => 'got a grown-up face at 3'], ['y7', () => 'became an adult at 7'],
+] : [
+  ['barbel', a => `${fmtAge(a)}でヒゲが生えて`], ['scuteAll', a => `${fmtAge(a)}で体じゅうによろいがそろって`],
+  ['seed', a => `${fmtAge(a)}で手のひらより大きくなって`], ['y1', () => '1歳の誕生日をむかえて'],
+  ['y3', () => '3歳で大人の顔になって'], ['y7', () => '7歳でりっぱなおとなになって'],
+];
+const fmtDate = (d) => EN ? d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+function storyOf(st, L, released) {
+  const t = ensureTraits(st), z = st.zukan, d = new Date(st.created);
+  const ev = STORY_EV.filter(([id]) => z[id]).slice(-2).map(([id, f]) => f(z[id].age));
+  const last = released ? 'どこかの海で、元気に泳いでいますように。'
+    : (st.aff || 0) >= 60 ? 'なでると鼻を上げてよろこぶ、なかよしの子。'
+    : t.sniffy > 1.2 ? 'ごはんの時は、だれより先に鼻をヒクヒクさせる。'
+    : t.curious > 1.2 ? 'よく水面を見上げて、こちらをのぞきに来る。'
+    : t.active < 0.8 ? '底でじっと休むのが、いちばん好き。'
+    : 'ゆったり泳ぐ姿に、毎日いやされている。';
+  if (EN) {
+    const who = `${personality(t)}${t.curious > 1.2 ? ', curious' : ''}${st.sexKnown ? ' ' + sexName(st.sex) : ''} sturgeon`;
+    const s = [`${st.name} arrived as an egg on ${fmtDate(d)} — a ${who} with ${SPOT[t.spotShape]}.`];
+    const did = ev.length ? `It ${ev.join(' and ')}. ` : '';
+    if (released) s.push(`${did}At ${fmtAge(st.age)} and ${fmtLength(L)} long, it set off for the sea.`);
+    else if (st.dev < 0) s.push('For now it is still inside the egg, waiting to hatch.');
+    else s.push(`${did}Now it is ${fmtLength(L)} long.`);
+    s.push(released ? 'I hope it is swimming happily somewhere in the sea.'
+      : (st.aff || 0) >= 60 ? 'A close friend that lifts its nose with joy when petted.'
+      : t.sniffy > 1.2 ? 'At mealtime it is always the first to twitch its nose.'
+      : t.curious > 1.2 ? 'It often looks up at the surface to peek at me.'
+      : t.active < 0.8 ? 'Resting quietly on the bottom is its favorite thing.'
+      : 'Watching it swim calmly makes my day.');
+    return s.join(' ');
+  }
+  const who = `${personality(t)}${t.curious > 1.2 ? 'で好奇心おうせい' : ''}な${st.sexKnown ? st.sex + 'の' : ''}チョウザメ`;
+  const s = [`${st.name}は${fmtDate(d)}に卵でやってきた、${SPOT[t.spotShape]}の${who}。`];
+  if (released) s.push(`${ev.length ? ev.join('、') + '、' : ''}${fmtAge(st.age)}・全長${fmtLength(L)}で海へ旅立った。`);
+  else if (st.dev < 0) s.push('いまはまだ卵の中で、ふ化の日を待っている。');
+  else s.push(`${ev.length ? ev.join('、') + '、' : ''}いまは全長${fmtLength(L)}。`);
+  s.push(last);
+  return s.join('');
+}
+// カードの飾り。「海」は無料、ほかは応援の合言葉で使える（結果は変わらない）
+const DECOS = [
+  { id: 'umi', name: tr('海', 'Sea'), top: '#0d4152', bot: '#04161e', acc: '#5fd3a0', tx: '#e9f6f8', sub: '#9fc3cb', free: true },
+  { id: 'sakura', name: tr('さくら', 'Sakura'), top: '#7a3a55', bot: '#2a1020', acc: '#ffb7cf', tx: '#fff2f6', sub: '#e6b9c9', petal: '#ffc6d9' },
+  { id: 'yuki', name: tr('雪', 'Snow'), top: '#3b5a7a', bot: '#101c2c', acc: '#cfe8ff', tx: '#f4faff', sub: '#b9cde0', petal: '#ffffff' },
+  { id: 'kin', name: tr('金', 'Gold'), top: '#4a3a12', bot: '#120d02', acc: '#f0c75e', tx: '#fff6dd', sub: '#d9c38a', frame: '#e0b850' },
+];
+let decoId = 'umi';
+try { decoId = localStorage.getItem('chozame-deco') || 'umi'; } catch {}
+const decoNow = () => { const d = DECOS.find(x => x.id === decoId) || DECOS[0]; return d.free || licensed() ? d : DECOS[0]; };
+function pickDeco(id) {
+  const d = DECOS.find(x => x.id === id); if (!d) return;
+  if (!d.free && !licensed()) { showLock(); return; }
+  decoId = id; try { localStorage.setItem('chozame-deco', id); } catch {}
+  if (lastCard) showStoryCard(lastCard.rec);
+}
+const loadImg = (src) => new Promise((ok, ng) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ng; im.src = src; });
+// 投稿にそのまま使える縦長の画像（写真・名前・お話・公式URL）
+async function drawCard({ name, sub, story, img, egg }) {
+  const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), FONT = '"Hiragino Sans", "Noto Sans JP", system-ui, sans-serif', D = decoNow();
+  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, D.top); bg.addColorStop(1, D.bot);
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  if (D.petal) { // 花びら・雪をちらす（毎回同じ位置）
+    let k = 7; const rnd = () => (k = (k * 16807) % 2147483647) / 2147483647;
+    g.fillStyle = D.petal;
+    for (let i = 0; i < 70; i++) { const x = rnd() * W, y = rnd() * H, a = 0.25 + rnd() * 0.5; if (y > 720 && y < 1240 && x > 40 && x < 1040) continue; g.globalAlpha = a; g.beginPath(); g.ellipse(x, y, 6 + rnd() * 10, 4 + rnd() * 6, rnd() * 3, 0, Math.PI * 2); g.fill(); } // 文字の上にはちらさない
+    g.globalAlpha = 1;
+  }
+  if (D.frame) { g.strokeStyle = D.frame; g.lineWidth = 6; g.strokeRect(12, 12, W - 24, H - 24); g.lineWidth = 2; g.strokeRect(24, 24, W - 48, H - 48); }
+  const px = 60, py = 60, pw = 960, ph = 640;
+  g.save(); g.beginPath(); g.roundRect(px, py, pw, ph, 24); g.clip();
+  g.fillStyle = '#1d5f72'; g.fillRect(px, py, pw, ph);
+  if (img) { try { const im = await loadImg(img); const r = Math.max(pw / im.width, ph / im.height); g.drawImage(im, px + (pw - im.width * r) / 2, py + (ph - im.height * r) / 2, im.width * r, im.height * r); } catch {} }
+  else { g.font = `200px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(egg ? '🥚' : '🐟', W / 2, py + ph / 2); g.textAlign = 'left'; g.textBaseline = 'alphabetic'; }
+  g.restore();
+  g.fillStyle = D.tx; g.font = `800 66px ${FONT}`; g.fillText(name, px, 800);
+  g.fillStyle = D.sub; g.font = `500 34px ${FONT}`; g.fillText(sub, px, 856);
+  // お話を折り返す（日本語は、。」で行が始まらないように。英語は単語で折る）
+  g.fillStyle = D.tx; g.font = `500 ${EN ? 36 : 38}px ${FONT}`;
+  const lines = []; let cur = '';
+  for (const ch of EN ? story.split(/(?<= )/) : story) {
+    if (cur && g.measureText((cur + ch).trimEnd()).width > pw && !(!EN && '、。」）'.includes(ch))) { lines.push(cur); cur = ch; } else cur += ch;
+  }
+  if (cur) lines.push(cur);
+  lines.slice(0, 5).forEach((l, i) => g.fillText(l.trimEnd(), px, 936 + i * 58));
+  g.fillStyle = 'rgba(255,255,255,.2)'; g.fillRect(px, 1222, pw, 2);
+  g.fillStyle = D.acc; g.font = `700 32px ${FONT}`; g.fillText(`${GAME} β`, px, 1272);
+  g.textAlign = 'right'; g.fillText(TAG, px + pw, 1272);
+  g.fillStyle = D.sub; g.font = `500 28px ${FONT}`; g.textAlign = 'left';
+  g.fillText(OFFICIAL_URL.replace('https://', '').replace(/\/$/, ''), px, 1316);
+  return c;
+}
+let lastCard = null;
+async function showStoryCard(rec) {
+  let name, sub, story, img;
+  if (rec) { ({ name, story, img } = rec); sub = tr(`${fmtAge(rec.age)}・全長 ${fmtLength(rec.len)}・海へ放流`, `${fmtAge(rec.age)} · ${fmtLength(rec.len)} · released`); }
+  else {
+    const L = len(); name = S.name; story = storyOf(S, L, false);
+    sub = S.dev < 0 ? tr('受精卵・直径3.2mm', 'Egg · 3.2 mm across') : `${fmtAge(S.age)}${SEP}${tr('全長 ', '')}${fmtLength(L)}${SEP}${fmtWeight(weightOf(L))}`;
+    img = S.dev >= 0 ? takeSnap() : (ZUKAN.map(z => S.zukan[z.id]?.img).filter(Boolean).pop() || null);
+  }
+  const c = await drawCard({ name, sub, story, img, egg: !rec && S.dev < 0 });
+  lastCard = { c, name, rec, text: `${story}\n${TAG}\n${OFFICIAL_URL}` };
+  const cur = decoNow().id;
+  const decos = DECOS.map(d => `<button data-deco="${d.id}" class="${d.id === cur ? 'on' : ''}">${d.free || licensed() ? '' : '🔒'}${d.name}</button>`).join('');
+  showDetail(tr(`${name}の物語`, `${name}'s story`), null, `<img class="card-img" src="${c.toDataURL('image/jpeg', 0.9)}" alt="${tr(`${name}の物語カード`, `${name}'s story card`)}" style="width:100%;display:block">
+    <div class="card-btns"><button id="card-share">${tr('共有する', 'Share')}</button><button id="card-save">${tr('画像を保存', 'Save image')}</button><button id="card-x">${tr('Xに投稿する', 'Post on X')}</button></div>
+    <div class="deco-row">${decos}</div>
+    <p style="font-size:12px;color:var(--sub)">${tr('飾り：「海」は無料。🔒は応援の合言葉で使えます（育ち方は変わりません）。<br>スマホは画像を長押しでも保存できます。Xに投稿する時は、保存した画像を添付してください。', 'Decorations: "Sea" is free. 🔒 ones unlock with a supporter code (it doesn\'t change how fish grow).<br>On phones you can also long-press the image to save it. When posting on X, attach the saved image.')}</p>`);
+}
+function cardBlob() { return new Promise(ok => lastCard.c.toBlob(ok, 'image/jpeg', 0.9)); }
+const cardFile = () => tr(`${lastCard.name}の物語.jpg`, `${lastCard.name}-story.jpg`);
+async function saveCard() {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(await cardBlob()); a.download = cardFile();
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function shareCard() {
+  const file = new File([await cardBlob()], cardFile(), { type: 'image/jpeg' });
+  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], text: lastCard.text }); } catch {} }
+  else { saveCard(); toast(tr('この画面では共有できないので、画像を保存しました', 'Sharing isn\'t available here, so the image was saved')); }
+}
+const openX = (text) => open(`https://x.com/intent/post?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
 
 // ---------------- 思い出ムービー ----------------
 const zukanDone = (st) => ZUKAN.every(z => st.zukan[z.id]);
 function offerMovie() {
   if (releasing || moviePlaying) return;
-  $('#movie-ask-text').innerHTML = `🎉 図鑑がぜんぶうまりました！<br><b>${S.name}</b>の思い出ムービーを見る？`;
+  $('#movie-ask-text').innerHTML = tr(`🎉 図鑑がぜんぶうまりました！<br><b>${S.name}</b>の思い出ムービーを見る？`, `🎉 The book is complete!<br>Watch <b>${S.name}</b>'s memory movie?`);
   $('#movie-ask').hidden = false;
 }
 function startMovie(trial = false) {
@@ -817,13 +1050,13 @@ function startMovie(trial = false) {
   const st = S, L = len();
   const entries = ZUKAN.filter(z => st.zukan[z.id]).map(z => {
     const r = st.zukan[z.id];
-    return { title: z.title, sub: `${fmtAge(r.age)}・${r.age < 0 ? '直径3.2mm' : '全長 ' + fmtLength(r.len)}`, img: r.img, line: z.line, emoji: r.age < 0 ? '🥚' : '🐟' };
+    return { title: z.title, sub: `${fmtAge(r.age)}${SEP}${r.age < 0 ? tr('直径3.2mm', '3.2 mm across') : tr('全長 ', '') + fmtLength(r.len)}`, img: r.img, line: z.line, emoji: r.age < 0 ? '🥚' : '🐟' };
   });
-  const finale = `全長 ${fmtLength(L)}・${fmtWeight(weightOf(L))}${st.sexKnown ? '・' + st.sex : ''}<br>図鑑 ${entries.length} / ${ZUKAN.length}`;
+  const finale = `${tr('全長 ', '')}${fmtLength(L)}${SEP}${fmtWeight(weightOf(L))}${st.sexKnown ? SEP + sexName(st.sex) : ''}<br>${tr('図鑑', 'Book')} ${entries.length} / ${ZUKAN.length}`;
   const wasOn = audio.on; audio.stop();
   moviePlaying = true;
   $('#hud').hidden = true; $('#bottom').hidden = true; $('#ruler').hidden = true; $('#toasts').innerHTML = ''; toastQ = [];
-  const opts = trial ? { heading: `${st.name}の思い出`, subheading: `ここまでの${entries.length}まい（お試し）`, lines: ['ここまで大きくなったね。', `これからもよろしくね、${st.name}。`] } : {};
+  const opts = trial ? { heading: tr(`${st.name}の思い出`, `Memories of ${st.name}`), subheading: tr(`ここまでの${entries.length}まい（お試し）`, `${entries.length} photos so far (preview)`), lines: [tr('ここまで大きくなったね。', 'Look how big you\'ve grown.'), tr(`これからもよろしくね、${st.name}。`, `Let\'s keep going, ${st.name}.`)] } : {};
   playMemoryMovie({ name: st.name, entries, finale, ...opts, onDone: () => {
     moviePlaying = false; if (!trial) st.movieSeen = true; save();
     $('#hud').hidden = false; $('#bottom').hidden = false; $('#ruler').hidden = false;
@@ -834,7 +1067,7 @@ function startMovie(trial = false) {
 
 // ---------------- 海へ放流 ----------------
 function askRelease() {
-  $('#release-ask-text').innerHTML = `<b>${S.name}</b>（${fmtAge(S.age)}・全長 ${fmtLength(len())}）を海へ放流しますか？<br>放流すると、この子はもう水槽には戻りません。図鑑の「思い出」に記録が残ります。`;
+  $('#release-ask-text').innerHTML = tr(`<b>${S.name}</b>（${fmtAge(S.age)}・全長 ${fmtLength(len())}）を海へ放流しますか？<br>放流すると、この子はもう水槽には戻りません。図鑑の「思い出」に記録が残ります。`, `Release <b>${S.name}</b> (${fmtAge(S.age)}, ${fmtLength(len())}) to the sea?<br>Once released, it won't come back to the tank. Its record stays in Book → Memories.`);
   $('#release-ask').hidden = false;
 }
 function startRelease() {
@@ -844,7 +1077,7 @@ function startRelease() {
   $('#hud').hidden = true; $('#bottom').hidden = true; $('#ruler').hidden = true; $('#toasts').innerHTML = ''; toastQ = [];
   for (const f of foods.splice(0)) scene.remove(f.mesh);
   const st = S, L = len();
-  const rec = { name: st.name, age: st.age, len: L, w: weightOf(L), sex: st.sexKnown ? st.sex : null, date: Date.now(), img: null, zukan: Object.keys(st.zukan).length };
+  const rec = { name: st.name, age: st.age, len: L, w: weightOf(L), sex: st.sexKnown ? st.sex : null, date: Date.now(), img: null, zukan: Object.keys(st.zukan).length, story: storyOf(st, L, true) };
   playRelease({
     renderer, st, len: L, look: lookFor(st.dev, L), traits: ensureTraits(st), audio,
     onSnap: (cv) => {
@@ -864,13 +1097,13 @@ function startRelease() {
 }
 function showReleaseDone(rec) {
   $('#release-done-img').innerHTML = rec.img ? `<img src="${rec.img}" alt="">` : '';
-  $('#release-done-text').innerHTML = `<b>${rec.name}</b>を海へ放流しました。<br>${fmtAge(rec.age)}・全長 ${fmtLength(rec.len)}・${fmtWeight(rec.w)}<br>大きく育ってね。元気でね！`;
+  $('#release-done-text').innerHTML = `${tr(`<b>${rec.name}</b>を海へ放流しました。`, `<b>${rec.name}</b> was released to the sea.`)}<br>${fmtAge(rec.age)}${SEP}${tr('全長 ', '')}${fmtLength(rec.len)}${SEP}${fmtWeight(rec.w)}<br>${tr('大きく育ってね。元気でね！', 'Grow up big. Take care!')}<br><button class="story-btn" style="width:100%;margin-top:8px" data-rel="${R.released.length - 1}">${tr('🖼 物語カードを作る', '🖼 Make a story card')}</button>`;
   const room = R.list.length < MAX_FISH;
   $('#release-new').hidden = !room;
   $('#release-new-name').hidden = !room;
   $('#release-new-name').value = '';
   $('#release-close').hidden = R.list.length === 0; // ほかに子がいなければ、新しい卵を育てる
-  $('#release-done-q').textContent = R.list.length === 0 ? '水槽があいたよ。新しい卵を育てよう！' : room ? '水槽があいたよ。もう1匹、卵から育てる？' : '';
+  $('#release-done-q').textContent = R.list.length === 0 ? tr('水槽があいたよ。新しい卵を育てよう！', 'The tank is free. Let\'s raise a new egg!') : room ? tr('水槽があいたよ。もう1匹、卵から育てる？', 'A tank is free. Raise another one from an egg?') : '';
   $('#release-done').hidden = false;
 }
 function afterRelease(newName) {
@@ -880,7 +1113,7 @@ function afterRelease(newName) {
     const ns = newState(newName.slice(0, 12)); ns.autofeed = R.list[0]?.autofeed ?? false;
     R.list.push(ns); save();
     R.active = -1; switchTo(R.list.length - 1);
-    toast(`🥚 ${ns.name}の卵を受け取った！`);
+    toast(tr(`🥚 ${ns.name}の卵を受け取った！`, `🥚 You got ${ns.name}'s egg!`));
   } else { R.active = -1; switchTo(0); }
   tabsKey = ''; renderTabs();
 }
@@ -889,7 +1122,7 @@ function afterRelease(newName) {
 // 引っ越しの時、あいた水槽でもう1匹育てるか聞く
 function offerNewFish(st, newTank) {
   if (R.list.length >= MAX_FISH || !$('#newfish').hidden) return;
-  $('#newfish-text').innerHTML = `${st.name}が<b>${newTank.name}</b>へ引っ越して、前の水槽があいたよ。<br>もう1匹、卵から育てる？（最大${MAX_FISH}匹・あと${MAX_FISH - R.list.length}匹）`;
+  $('#newfish-text').innerHTML = tr(`${st.name}が<b>${newTank.name}</b>へ引っ越して、前の水槽があいたよ。<br>もう1匹、卵から育てる？（最大${MAX_FISH}匹・あと${MAX_FISH - R.list.length}匹）`, `${st.name} moved to the <b>${newTank.name}</b>, so the old tank is free.<br>Raise another one from an egg? (up to ${MAX_FISH} fish, ${MAX_FISH - R.list.length} more)`);
   $('#newfish-name').value = '';
   $('#newfish').hidden = false;
 }
@@ -898,7 +1131,7 @@ function addFish(name) {
   ns.temp = 17; ns.autofeed = S.autofeed;
   R.list.push(ns); save();
   switchTo(R.list.length - 1);
-  toast(`🥚 ${name}の卵を受け取った！ 上の名前ボタンで見る子を切りかえられるよ`);
+  toast(tr(`🥚 ${name}の卵を受け取った！ 上の名前ボタンで見る子を切りかえられるよ`, `🥚 You got ${name}'s egg! Switch fish with the name buttons at the top`));
 }
 // 見る子を切りかえる
 function switchTo(i) {
@@ -928,7 +1161,7 @@ let tabsKey = '';
 function renderTabs() {
   const box = $('#tabs');
   if (R.list.length < 2) { box.hidden = true; return; }
-  const short = (st) => st.dev < 0 ? '卵' : st.age < 365 ? `${Math.floor(st.age)}日` : `${Math.floor(st.age / 365)}歳`;
+  const short = (st) => st.dev < 0 ? tr('卵', 'egg') : st.age < 365 ? tr(`${Math.floor(st.age)}日`, `day ${Math.floor(st.age)}`) : tr(`${Math.floor(st.age / 365)}歳`, `${Math.floor(st.age / 365)} yr`);
   const items = R.list.map((st, i) => [i === R.active, st.name, short(st), careIcon(st)]);
   const key = JSON.stringify(items);
   if (key === tabsKey) return; tabsKey = key;
@@ -941,12 +1174,15 @@ function renderTabs() {
   });
 }
 
-$('#newfish-go').onclick = () => { $('#newfish').hidden = true; addFish(($('#newfish-name').value || ['チョウ子', 'チョウ吉', 'チョウ美'][R.list.length % 3]).slice(0, 12)); };
-$('#newfish-no').onclick = () => { $('#newfish').hidden = true; toast('また次の引っ越しの時に聞くね'); };
+$('#newfish-go').onclick = () => { $('#newfish').hidden = true; addFish(($('#newfish-name').value || (EN ? ['Stella', 'Rocky', 'Pearl'] : ['チョウ子', 'チョウ吉', 'チョウ美'])[R.list.length % 3]).slice(0, 12)); };
+$('#newfish-no').onclick = () => { $('#newfish').hidden = true; toast(tr('また次の引っ越しの時に聞くね', 'I\'ll ask again at the next move')); };
+$('#intro-beta').textContent = `${BETA} ／ ${tr('配信・動画・スクショOK', 'streaming, videos & screenshots OK')}`;
+$('#intro-lang').textContent = EN ? '🌐 日本語で遊ぶ' : '🌐 Play in English';
+$('#intro-lang').onclick = () => setLang(EN ? 'ja' : 'en');
 if (!S) {
   $('#intro').hidden = false;
   $('#intro-go').onclick = () => {
-    S = newState(($('#intro-name').value || 'チョウ太').slice(0, 12));
+    S = newState(($('#intro-name').value || tr('チョウ太', 'Sturgie')).slice(0, 12));
     R = { v: 2, active: 0, speed: 2, list: [S] };
     $('#intro').hidden = true; save(); start();
   };
@@ -996,7 +1232,7 @@ function frame(dt) {
 requestAnimationFrame(loop);
 
 // 確認用
-window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, setDev(d) { S.dev = d; S.age = d; } };
+window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, showLock, licensed, showStoryCard, setDev(d) { S.dev = d; S.age = d; } };
 
 // アプリとして使えるように（ホーム画面に追加・オフライン）
 if ('serviceWorker' in navigator && isSecureContext && !new URLSearchParams(location.search).has('test')) {

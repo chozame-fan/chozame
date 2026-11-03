@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // 図鑑が完成した時の「思い出ムービー」：写真がゆっくり流れ、やさしい音楽が鳴る
 // 音楽はその場で作る（ピアノ・弦・メロディー）。コードは F G Em Am / F G C C（よく泣ける進行）
 
@@ -111,7 +112,7 @@ export function playMemoryMovie({ name, entries, finale, onDone, heading, subhea
   };
 
   // はじまり
-  title.innerHTML = `<div class="m-big">${heading || name + 'の10年'}</div><div class="m-small">${subheading || 'ふ化から、おとなになるまで'}</div>`;
+  title.innerHTML = `<div class="m-big">${heading || tr(name + 'の10年', `${name}'s ten years`)}</div><div class="m-small">${subheading || tr('ふ化から、おとなになるまで', 'From hatching to adulthood')}</div>`;
   at(0.6, () => { title.className = 'm-title show'; });
   at(INTRO - 1.2, () => { title.className = 'm-title'; });
   // 思い出
@@ -121,8 +122,8 @@ export function playMemoryMovie({ name, entries, finale, onDone, heading, subhea
   at(tEnd, () => { cap.className = 'm-cap'; line.className = 'm-line'; A.style.opacity = B.style.opacity = 0; });
   at(tEnd + 1.6, () => {
     end.hidden = false;
-    const [ln1, ln2] = lines || ['よくここまで育ったね。', `ありがとう、${name}。`];
-    end.innerHTML = `<p class="l1">${ln1}</p><p class="l2">${ln2}</p><p class="l3">${finale}</p><div class="m-btns"><button id="movie-again">もう一度見る</button><button id="movie-close">閉じる</button></div>`;
+    const [ln1, ln2] = lines || [tr('よくここまで育ったね。', 'You grew up so well.'), tr(`ありがとう、${name}。`, `Thank you, ${name}.`)];
+    end.innerHTML = `<p class="l1">${ln1}</p><p class="l2">${ln2}</p><p class="l3">${finale}</p><div class="m-btns"><button id="movie-again">${tr('もう一度見る', 'Watch again')}</button><button id="movie-close">${tr('閉じる', 'Close')}</button></div>`;
     end.querySelectorAll('p').forEach((p, k) => setTimeout(() => p.classList.add('show'), 400 + k * 2600));
     setTimeout(() => end.querySelector('.m-btns').classList.add('show'), 400 + 3 * 2600);
     end.querySelector('#movie-close').onclick = () => close();

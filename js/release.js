@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // 海への放流シーン：夕暮れの海に放す → 水中で青い海の奥へ泳いでいく
 // 単位は cm（魚の大きさと同じ）
 import * as THREE from 'three';
@@ -185,7 +186,7 @@ export function playRelease({ renderer, st, len, look, traits, audio, onSnap, on
         splash.material.opacity = Math.max(0, 1 - (t - 2.7) * 0.8);
         const rs = (t - 2.7) * 260; ring.scale.setScalar(rs); ring.material.opacity = Math.max(0, 0.6 - (t - 2.7) * 0.4);
       }
-      if (t > 1.2 && t < 3.6) say('大きく育ってね');
+      if (t > 1.2 && t < 3.6) say(tr('大きく育ってね', 'Grow up big'));
       if (t > 3.4) hush();
       fade.style.opacity = t < 0.8 ? 1 - t / 0.8 : t > 3.6 ? Math.min(1, (t - 3.6) / 0.6) : 0;
       fade.style.background = t > 3.6 ? '#bfe9f5' : '#000';
@@ -214,7 +215,7 @@ export function playRelease({ renderer, st, len, look, traits, audio, onSnap, on
         m.position.set(sx + o.x + Math.sin(t * 2 + m.userData.ph) * 20, -250 + o.y, -1300 + o.z);
         m.rotation.set(0, 0, Math.sin(t * 8 + m.userData.ph) * 0.1);
       }
-      if (u > 2.6 && u < 8.6) say(`元気でね、${st.name}！`); else hush();
+      if (u > 2.6 && u < 8.6) say(tr(`元気でね、${st.name}！`, `Take care, ${st.name}!`)); else hush();
       if (!snapped && u > 3.2) { snapped = true; renderer.render(scene, camera); onSnap?.(renderer.domElement); }
     }
     renderer.render(scene, camera);

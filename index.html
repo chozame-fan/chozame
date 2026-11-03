@@ -99,6 +99,7 @@
   .card .me { font-size: 11px; color: var(--sub); padding: 2px 10px 10px; }
   .src { grid-column: 1 / -1; font-size: 13px; line-height: 1.7; }
   .src a { color: #8fe3ff; }
+  #detail { z-index: 12; }
   #detail .box { width: min(560px, 100%); }
   #detail-img img { width: 100%; border-radius: 10px; display: block; margin-bottom: 10px; }
   #detail-text { font-size: 15px; line-height: 1.8; }
@@ -167,6 +168,31 @@
   #movie .m-end .l3 { font-family: inherit; font-size: clamp(13px, 3vw, 16px); color: #cfe7ee; line-height: 1.9; letter-spacing: .05em; }
   #movie .m-btns { display: flex; gap: 10px; margin-top: 10px; }
   #movie-skip { position: absolute; right: 16px; top: max(16px, env(safe-area-inset-top)); background: rgba(0,0,0,.35); font-size: 13px; z-index: 2; }
+  #btn-key { width: 100%; margin-top: 8px; padding: 9px; font-weight: 700; background: linear-gradient(90deg, #8a6a2a, #b88a3a); border-color: #e0b860; }
+  #lock .box { width: min(440px, 100%); text-align: center; }
+  #lock p { line-height: 1.8; font-size: 15px; }
+  #lock-code { width: 100%; font: 18px/1.2 ui-monospace, monospace; letter-spacing: .08em; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: var(--tx); text-align: center; margin: 4px 0 6px; text-transform: uppercase; }
+  #lock-msg { min-height: 1.4em; font-size: 14px !important; color: #ffd88a; }
+  #lock-ok { background: var(--acc); color: #0b2a33; border: none; }
+  #lock-buy { background: #d0a050; color: #2a1a00; border: none; }
+  #lock-close { margin-top: 10px; font-size: 13px; opacity: .8; }
+  #beta { margin-top: 6px; font-size: 11px; color: var(--sub); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+  .beta-note { font-size: 12px !important; color: var(--acc) !important; margin: 0 0 6px; }
+  .tabs { flex-wrap: wrap; }
+  .story-btn { grid-column: 1 / -1; padding: 12px; font-size: 15px; font-weight: 700; background: linear-gradient(90deg, #1f6f5c, #2f9478); border-color: #5fd3a0; }
+  #detail-img img.card-img { border-radius: 6px; }
+  .card-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .card-btns button { flex: 1 1 140px; padding: 10px; font-weight: 700; }
+  #card-share { background: var(--acc); color: #0b2a33; border: none; }
+  .story-text { font-size: 14px; line-height: 1.9; background: rgba(255,255,255,.05); border-radius: 8px; padding: 10px 12px; }
+  .news li { margin: 4px 0; }
+  .news .d { display: inline-block; min-width: 3.4em; color: var(--acc); font-variant-numeric: tabular-nums; }
+  #fb-text { width: 100%; height: 70px; font: inherit; font-size: 14px; background: rgba(255,255,255,.06); color: var(--tx); border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 6px 0; -webkit-user-select: text; user-select: text; }
+  .lang-btn { display: block; margin: 10px auto 0; font-size: 13px; padding: 5px 12px; opacity: .85; }
+  .lang-row button.on { background: var(--acc); color: #0b2a33; border-color: var(--acc); }
+  .deco-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .deco-row button { flex: 1 1 70px; padding: 6px 4px; font-size: 13px; }
+  .deco-row button.on { outline: 2px solid var(--acc); }
   #btn-reset { font-size: 12px; padding: 6px 10px; margin-top: 14px; opacity: .7; }
   @media (max-width: 640px) {
     #hud { padding: 10px 12px; width: calc(100vw - 110px); }
@@ -195,7 +221,7 @@
 
 <div id="hud" class="panel" hidden>
   <div id="tabs" hidden></div>
-  <div class="top" id="hud-top"><span id="name"></span><span id="stage"></span><button id="snd" class="snd" aria-label="水の音">🔇</button><span class="fold" id="fold">▲</span></div>
+  <div class="top" id="hud-top"><span id="name"></span><span id="stage"></span><button id="snd" class="snd" aria-label="水の音" data-en-aria="Water sound">🔇</button><span class="fold" id="fold">▲</span></div>
   <div class="more">
   <div id="age-row"><span id="age"></span><span id="sex"></span></div>
   <div id="trait"></div>
@@ -203,85 +229,95 @@
   <div id="pace"></div>
   <div class="meters">
     <div class="m"><span id="sat-label">おなか</span><div class="bar"><i id="m-sat"></i></div></div>
-    <div class="m"><span>水質</span><div class="bar"><i id="m-water"></i></div></div>
-    <div class="m"><span>元気</span><div class="bar"><i id="m-health"></i></div></div>
-    <div class="m"><span>なかよし</span><div class="bar"><i id="m-aff"></i></div></div>
+    <div class="m"><span data-en="Water">水質</span><div class="bar"><i id="m-water"></i></div></div>
+    <div class="m"><span data-en="Health">元気</span><div class="bar"><i id="m-health"></i></div></div>
+    <div class="m"><span data-en="Bond">なかよし</span><div class="bar"><i id="m-aff"></i></div></div>
   </div>
-  <div class="temp"><span>水温</span><input id="temp" type="range" min="4" max="28" step="1"><span id="temp-val"></span></div>
+  <div class="temp"><span data-en="Temp">水温</span><input id="temp" type="range" min="4" max="28" step="1"><span id="temp-val"></span></div>
   <div id="temp-ok"></div>
   <div id="bubble"></div>
   <div id="tank-name"></div>
-  <button id="btn-release" hidden>🌊 海へ放流する</button>
-  </div>
+  <div id="beta" role="button" tabindex="0"></div>
+  <button id="btn-release" hidden data-en="🌊 Release to the sea">🌊 海へ放流する</button>
+    </div>
 </div>
 
 <div id="ruler"><span id="ruler-label"></span><div id="ruler-bar"></div></div>
 
 <div id="bottom" class="panel" hidden>
-  <button id="btn-food" class="big">🍽 えさ</button>
-  <button id="btn-water" class="big">💧 水かえ</button>
-  <button id="btn-zukan" class="big">📘 図鑑</button>
+  <button id="btn-food" class="big" data-en="🍽 Feed">🍽 えさ</button>
+  <button id="btn-water" class="big" data-en="💧 Water">💧 水かえ</button>
+  <button id="btn-zukan" class="big" data-en="📘 Book">📘 図鑑</button>
   <div class="speedwrap">
     <div id="speed"><button>⏸</button><button>▶</button><button>▶▶</button><button>⏩</button><button>⏭</button></div>
     <div id="speed-label"></div>
   </div>
-  <label class="auto" title="成長に合った餌と水かえを自動で"><input id="auto" type="checkbox">おまかせ</label>
-  <button id="btn-view">👀<span class="lbl"> 自由</span></button>
-  <button id="btn-cam">🎥<span class="lbl"> 追いかけ</span></button>
+  <label class="auto" title="成長に合った餌と水かえを自動で" data-en-title="Feed and change water automatically"><input id="auto" type="checkbox"><span data-en="Auto">おまかせ</span></label>
+  <button id="btn-view" data-en-html="👀<span class=&quot;lbl&quot;> Free</span>">👀<span class="lbl"> 自由</span></button>
+  <button id="btn-cam" data-en-html="🎥<span class=&quot;lbl&quot;> Follow</span>">🎥<span class="lbl"> 追いかけ</span></button>
 </div>
 
 <div id="food-sheet" class="panel">
-  <h3>えさをあげる <button id="food-close">閉じる</button></h3>
-  <p>緑のわくの餌が今の大きさで食べられる餌。ほかの餌は食べ残しになって水が汚れます。</p>
+  <h3><span data-en="Feed">えさをあげる</span> <button id="food-close" data-en="Close">閉じる</button></h3>
+  <p data-en="Foods with a green frame fit the current size. Other foods are left over and make the water dirty.">緑のわくの餌が今の大きさで食べられる餌。ほかの餌は食べ残しになって水が汚れます。</p>
   <div id="food-list"></div>
 </div>
 
 <div id="toasts"></div>
 
 <div id="zukan" class="modal"><div class="box panel">
-  <div class="head"><h2>📘 チョウザメ図鑑</h2><span id="zukan-count"></span><button id="zukan-close" class="x">閉じる</button></div>
-  <div class="tabs"><button data-tab="grow">成長の記録</button><button data-tab="food">えさ</button><button data-tab="memory">思い出</button><button data-tab="src">参考にした資料</button></div>
+  <div class="head"><h2 data-en="📘 Sturgeon Book">📘 チョウザメ図鑑</h2><span id="zukan-count"></span><button id="zukan-close" class="x" data-en="Close">閉じる</button></div>
+  <div class="tabs"><button data-tab="grow" data-en="Growth">成長の記録</button><button data-tab="food" data-en="Food">えさ</button><button data-tab="memory" data-en="Memories">思い出</button><button data-tab="src" data-en="Sources & settings">参考にした資料</button><button data-tab="news" data-en="News">お知らせ</button></div>
   <div id="zukan-body"></div>
 </div></div>
 
 <div id="detail" class="modal"><div class="box panel">
-  <div class="head"><h2 id="detail-title"></h2><button id="detail-close" class="x">閉じる</button></div>
+  <div class="head"><h2 id="detail-title"></h2><button id="detail-close" class="x" data-en="Close">閉じる</button></div>
   <div id="detail-img"></div>
   <div id="detail-text"></div>
 </div></div>
 
 <div id="newfish" class="modal open" hidden><div class="box panel">
-  <div class="head"><h2>🏠 水槽があいたよ</h2></div>
+  <div class="head"><h2 data-en="🏠 A tank is free">🏠 水槽があいたよ</h2></div>
   <p id="newfish-text"></p>
-  <input id="newfish-name" placeholder="新しい子の名前" maxlength="12">
-  <div class="nf-btns"><button id="newfish-go">🥚 卵を育てる</button><button id="newfish-no">今はいい</button></div>
+  <input id="newfish-name" placeholder="新しい子の名前" data-en-ph="New fish's name" maxlength="12">
+  <div class="nf-btns"><button id="newfish-go" data-en="🥚 Raise an egg">🥚 卵を育てる</button><button id="newfish-no" data-en="Not now">今はいい</button></div>
 </div></div>
 
 <div id="release-ask" class="modal open" hidden><div class="box panel">
-  <div class="head"><h2>🌊 海へ放流</h2></div>
+  <div class="head"><h2 data-en="🌊 Release to the sea">🌊 海へ放流</h2></div>
   <p id="release-ask-text"></p>
-  <div class="nf-btns"><button id="release-yes">🌊 放流する</button><button id="release-no">やめる</button></div>
+  <div class="nf-btns"><button id="release-yes" data-en="🌊 Release">🌊 放流する</button><button id="release-no" data-en="Cancel">やめる</button></div>
 </div></div>
 
 <div id="release" hidden>
   <div id="release-fade"></div>
   <div id="release-msg"></div>
-  <button id="release-skip">スキップ ▶▶</button>
+  <button id="release-skip" data-en="Skip ▶▶">スキップ ▶▶</button>
   <div id="release-card" hidden></div>
 </div>
 
 <div id="release-done" class="modal open" hidden><div class="box panel">
-  <div class="head"><h2>🌊 いってらっしゃい</h2></div>
+  <div class="head"><h2 data-en="🌊 Bon voyage">🌊 いってらっしゃい</h2></div>
   <div id="release-done-img"></div>
   <p id="release-done-text"></p>
   <p id="release-done-q"></p>
-  <input id="release-new-name" placeholder="新しい子の名前" maxlength="12">
-  <div class="nf-btns"><button id="release-new">🥚 卵を育てる</button><button id="release-close">閉じる</button></div>
+  <input id="release-new-name" placeholder="新しい子の名前" data-en-ph="New fish's name" maxlength="12">
+  <div class="nf-btns"><button id="release-new" data-en="🥚 Raise an egg">🥚 卵を育てる</button><button id="release-close" data-en="Close">閉じる</button></div>
 </div></div>
 
 <div id="movie-ask" class="modal open" hidden><div class="box panel">
   <p id="movie-ask-text"></p>
-  <div class="nf-btns"><button id="movie-yes">🎬 見る</button><button id="movie-no">あとで</button></div>
+  <div class="nf-btns"><button id="movie-yes" data-en="🎬 Watch">🎬 見る</button><button id="movie-no" data-en="Later">あとで</button></div>
+</div></div>
+
+<div id="lock" class="modal open" hidden><div class="box panel">
+  <h2 data-en="🔑 Supporter code">🔑 応援の合言葉</h2>
+  <p id="lock-text"></p>
+  <input id="lock-code" placeholder="合言葉（例：CZ-XXXX-XXXX）" data-en-ph="Code (e.g. CZ-XXXX-XXXX)" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20">
+  <p id="lock-msg"></p>
+  <div class="nf-btns"><button id="lock-ok" data-en="🔑 Enter code">🔑 合言葉を入れる</button><button id="lock-buy" data-en="Buy a code (500 yen)">合言葉を買う（500円）</button></div>
+  <button id="lock-close" data-en="Later">あとで</button>
 </div></div>
 
 <div id="movie" hidden>
@@ -291,14 +327,16 @@
   <div class="m-line"></div>
   <div class="m-cap"></div>
   <div class="m-end" hidden></div>
-  <button id="movie-skip">スキップ ▶▶</button>
+  <button id="movie-skip" data-en="Skip ▶▶">スキップ ▶▶</button>
 </div>
 
 <div id="intro" hidden><div class="box panel">
-  <h1>🥚 チョウザメを育てよう</h1>
-  <p>シベリアチョウザメの受精卵からスタート。<br>ふ化 → 卵黄で成長 → はじめての餌 → ヒゲ・骨板（模様）→ おとなへ。<br>成長するたびに図鑑に記録されます。</p>
-  <input id="intro-name" placeholder="名前（例：チョウ太）" maxlength="12">
-  <button id="intro-go">卵を受け取る</button>
+  <h1 data-en="🥚 Raise a sturgeon">🥚 チョウザメを育てよう</h1>
+  <p data-en-html="Start from a fertilized Siberian sturgeon egg.<br>Hatch → grow on the yolk → first meal → barbels and scutes → adult.<br>Every stage is recorded in your book.">シベリアチョウザメの受精卵からスタート。<br>ふ化 → 卵黄で成長 → はじめての餌 → ヒゲ・骨板（模様）→ おとなへ。<br>成長するたびに図鑑に記録されます。</p>
+  <p class="beta-note" id="intro-beta"></p>
+  <input id="intro-name" placeholder="名前（例：チョウ太）" data-en-ph="Name (e.g. Sturgie)" maxlength="12">
+  <button id="intro-go" data-en="Get your egg">卵を受け取る</button>
+  <button id="intro-lang" class="lang-btn"></button>
 </div></div>
 
 <script type="module" src="./js/main.js"></script>
