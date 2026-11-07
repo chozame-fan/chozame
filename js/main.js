@@ -1110,11 +1110,11 @@ setPhotoSource((id) => R?.badges?.[id]?.img || (R ? reachedPhoto(id) : null));
 // ノートの章を、クイズの解説の中で開いて読めるようにする
 function noteRef(id) {
   const n = noteById(id); if (!n) return '';
-  return `<details class="note-ref"><summary>${tr(`📒 ノート「${n.title}」に書いてあるよ`, `📒 It's in the notes: "${n.title}"`)}</summary><ul>${n.lines.map(l => `<li>${l}</li>`).join('')}</ul>${n.fix ? `<p class="note-fix">${n.fix}</p>` : ''}</details>`;
+  return `<details class="note-ref"><summary>${tr(`📒 ノート「${n.title}」に書いてあるよ`, `📒 It's in the notes: "${n.title}"`)}</summary><ul>${n.lines.map(l => `<li>${l}</li>`).join('')}</ul></details>`;
 }
 function renderNote(body) {
   body.innerHTML = `<div class="src note-page"><h3>${tr('📒 チョウザメとは', '📒 What is a sturgeon?')}</h3><p class="note-lead">${tr('手書きのノートをまとめた読みものです。<mark>ピンク</mark>のところは大事なことば。クイズのヒントにもなるよ。', 'A reading page made from handwritten notes. <mark>Pink</mark> words are the key ones — handy for the quizzes.')}</p>
-    ${NOTE.map(n => `<section><h4>${n.title}</h4><ul>${n.lines.map(l => `<li>${l}</li>`).join('')}</ul>${n.fix ? `<p class="note-fix">✏️ ${tr('ちょっと訂正：', 'A small fix: ')}${n.fix}</p>` : ''}</section>`).join('')}</div>`;
+    ${NOTE.map(n => `<section><h4>${n.title}</h4><ul>${n.lines.map(l => `<li>${l}</li>`).join('')}</ul></section>`).join('')}</div>`;
 }
 // 節目の45日前になったら、次のクイズのヒントになる豆知識を1回だけ出す
 function maybeTip() {

@@ -1,6 +1,6 @@
 // チョウザメ ノート（手書きのノートをもとにした読みもの）と、育てている途中に出る豆知識。
 // 図鑑の「📒 ノート」タブで読める。クイズの解説からも、ノートのどこに書いてあるか案内する。
-// ※元のノートの「骨の大部分が硬い骨」は、実際は「骨の多くは軟骨」なので直して載せている。
+// ※元のノートの「骨の大部分が硬い骨」は事実と逆なので、「骨の多くは軟骨」と書きかえて載せている。
 import { tr } from './i18n.js';
 
 const M = (s) => `<mark>${s}</mark>`; // ノートのピンクのマーカー
@@ -16,7 +16,8 @@ export const NOTE = [
   { id: 'body', title: tr('体の特徴', 'Body'), lines: [
     tr(`うろこが変化した硬い${M('骨板')}が、体の表面に縦に何列もならんでいる（5列）。`, `Hard ${M('scutes')} — changed scales — run in rows along the body (5 rows).`),
     tr('尾びれは上下で形がちがう（上のほうが長い）。', 'The tail fin is uneven: the top part is longer.'),
-  ], fix: tr('ノートには「サメと違って骨の大部分が硬い骨」と書いていましたが、実際は逆で、チョウザメの体の骨の多くは<b>軟骨（やわらかい骨）</b>です。グループは「硬骨魚」なのに骨は軟骨が多い、ちょっと不思議な魚です。', 'My notes said "unlike sharks, most of its bones are hard". Actually it\'s the other way round: most of a sturgeon\'s skeleton is <b>cartilage</b> (soft bone). A "bony fish" with mostly soft bones — a curious fish.') },
+    tr('体の骨の多くは、やわらかい軟骨でできている。', 'Most of its skeleton is made of soft cartilage.'),
+  ] },
   { id: 'face', title: tr('顔まわり', 'Face'), lines: [
     tr('口は顔の下側にあり、歯はない。', 'The mouth is under the head, and it has no teeth.'),
     tr(`口の近くに4本の${M('ヒゲ')}があり、これで川底の泥や砂をさぐってエサを見つける。`, `Four ${M('barbels')} near the mouth feel through the mud and sand of the riverbed to find food.`),
