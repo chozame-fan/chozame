@@ -177,6 +177,9 @@
   #lock-buy { background: #d0a050; color: #2a1a00; border: none; }
   #lock-close { margin-top: 10px; font-size: 13px; opacity: .8; }
   #beta { margin-top: 6px; font-size: 11px; color: var(--sub); cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+  .kan-note { border: 2px solid; border-radius: 12px; padding: 10px 12px; color: var(--tx) !important; background: rgba(255,255,255,.06); }
+  .src.meet h3 small { font-size: 12px; color: var(--sub); font-weight: 500; margin-left: 8px; }
+  .src .draft { font-size: 12px; color: #ffc04d; }
   .beta-note { font-size: 12px !important; color: var(--acc) !important; margin: 0 0 6px; }
   .tabs { flex-wrap: wrap; }
   .story-btn { grid-column: 1 / -1; padding: 12px; font-size: 15px; font-weight: 700; background: linear-gradient(90deg, #1f6f5c, #2f9478); border-color: #5fd3a0; }
@@ -193,6 +196,48 @@
   .deco-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .deco-row button { flex: 1 1 70px; padding: 6px 4px; font-size: 13px; }
   .deco-row button.on { outline: 2px solid var(--acc); }
+  /* 節目のクイズとバッジ */
+  #title-chip { font-size: 11px; white-space: nowrap; color: #3a2600; background: linear-gradient(90deg, #ffd76a, #f2b440); border-radius: 99px; padding: 2px 8px; font-weight: 800; }
+  #quiz, #master { z-index: 25; }
+  #quiz .box, #master .box { width: min(480px, 100%); }
+  #quiz-step { margin-left: auto; color: var(--sub); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .q-intro { text-align: center; }
+  .q-intro p { line-height: 1.8; font-size: 15px; }
+  .badge-svg { display: block; margin: 0 auto; filter: drop-shadow(0 4px 10px rgba(0,0,0,.35)); }
+  .q-text { font-size: 17px; font-weight: 700; line-height: 1.7; margin: 4px 0 12px; }
+  .q-choices { display: grid; gap: 8px; }
+  .q-choices button { text-align: left; padding: 12px 14px; font-size: 15px; line-height: 1.5; }
+  .q-choices button:disabled { opacity: .55; cursor: default; }
+  .q-choices button.right { opacity: 1; background: rgba(95, 211, 160, .25); border-color: var(--acc); }
+  .q-choices button.wrong { opacity: 1; background: rgba(255, 107, 107, .22); border-color: #ff6b6b; }
+  .q-why { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.06); }
+  .q-why p { margin: 6px 0 10px; font-size: 14px; line-height: 1.8; }
+  .q-why .ok { color: var(--acc); font-size: 17px; }
+  .q-why .ng { color: #ff9b9b; font-size: 17px; }
+  button.q-go, #master-release { width: 100%; padding: 11px; font-weight: 700; font-size: 15px; background: var(--acc); color: #0b2a33; border: none; }
+  .nf-btns button.q-go { width: auto; }
+  .q-big { font-size: 20px !important; font-weight: 800; margin: 10px 0 0; }
+  .badge-pop { animation: badgePop 1s cubic-bezier(.2, 1.5, .4, 1) both; }
+  @keyframes badgePop { 0% { transform: scale(.2) rotate(-200deg); opacity: 0; } 70% { transform: scale(1.08) rotate(8deg); opacity: 1; } 100% { transform: none; } }
+  #master .box { text-align: center; background: radial-gradient(circle at 50% 20%, rgba(255, 215, 106, .22), rgba(6, 30, 40, .97) 60%); border-color: #e0b860; }
+  #master p { line-height: 1.8; font-size: 15px; }
+  .m-cong { margin: 10px 0 0; font-size: 16px !important; color: #ffe7a6; letter-spacing: .2em; }
+  .m-title-name { margin: 0; font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-size: clamp(20px, 6vw, 34px) !important; font-weight: 800; letter-spacing: .04em; white-space: nowrap; background: linear-gradient(90deg, #ffe7a6, #f2b440, #ffe7a6); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .m-title-name.sm { font-size: 18px !important; }
+  .m-row { display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
+  .m-row .badge-svg { margin: 0; }
+  #master-stay { font-weight: 700; }
+  .badge-head { border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px; }
+  .bh-row { display: flex; align-items: center; gap: 12px; margin: 6px 0; text-align: left; font-size: 13px; color: var(--sub); }
+  .bh-row .badge-svg { margin: 0; }
+  .badge-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .badge-card .ph { aspect-ratio: auto; padding: 10px 0 4px; background: radial-gradient(circle, #164556, #0d3140); }
+  .badge-card .ti { font-size: 13px; text-align: center; padding: 6px 6px 0; }
+  .badge-card .me { text-align: center; padding: 2px 6px 8px; }
+  .badge-card.locked { opacity: .8; }
+  .badge-card .me button { margin-top: 4px; padding: 7px; font-size: 13px; }
+  #release-ending { text-align: center; }
+  #release-ending .the-end { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: .3em; color: #ffe7a6; }
   #btn-reset { font-size: 12px; padding: 6px 10px; margin-top: 14px; opacity: .7; }
   @media (max-width: 640px) {
     #hud { padding: 10px 12px; width: calc(100vw - 110px); }
@@ -221,7 +266,7 @@
 
 <div id="hud" class="panel" hidden>
   <div id="tabs" hidden></div>
-  <div class="top" id="hud-top"><span id="name"></span><span id="stage"></span><button id="snd" class="snd" aria-label="水の音" data-en-aria="Water sound">🔇</button><span class="fold" id="fold">▲</span></div>
+  <div class="top" id="hud-top"><span id="name"></span><span id="stage"></span><span id="title-chip" hidden data-en="👑 Meister">👑 マイスター</span><button id="snd" class="snd" aria-label="水の音" data-en-aria="Water sound">🔇</button><span class="fold" id="fold">▲</span></div>
   <div class="more">
   <div id="age-row"><span id="age"></span><span id="sex"></span></div>
   <div id="trait"></div>
@@ -267,7 +312,7 @@
 
 <div id="zukan" class="modal"><div class="box panel">
   <div class="head"><h2 data-en="📘 Sturgeon Book">📘 チョウザメ図鑑</h2><span id="zukan-count"></span><button id="zukan-close" class="x" data-en="Close">閉じる</button></div>
-  <div class="tabs"><button data-tab="grow" data-en="Growth">成長の記録</button><button data-tab="food" data-en="Food">えさ</button><button data-tab="memory" data-en="Memories">思い出</button><button data-tab="src" data-en="Sources & settings">参考にした資料</button><button data-tab="news" data-en="News">お知らせ</button></div>
+  <div class="tabs"><button data-tab="grow" data-en="Growth">成長の記録</button><button data-tab="badge" data-en="🏅 Badges">🏅 バッジ</button><button data-tab="food" data-en="Food">えさ</button><button data-tab="memory" data-en="Memories">思い出</button><button data-tab="src" data-en="Sources & settings">参考にした資料</button><button data-tab="meet" data-en="Places to visit">会いに行ける場所</button><button data-tab="news" data-en="News">お知らせ</button></div>
   <div id="zukan-body"></div>
 </div></div>
 
@@ -300,6 +345,7 @@
 <div id="release-done" class="modal open" hidden><div class="box panel">
   <div class="head"><h2 data-en="🌊 Bon voyage">🌊 いってらっしゃい</h2></div>
   <div id="release-done-img"></div>
+  <div id="release-ending" hidden></div>
   <p id="release-done-text"></p>
   <p id="release-done-q"></p>
   <input id="release-new-name" placeholder="新しい子の名前" data-en-ph="New fish's name" maxlength="12">
@@ -309,6 +355,15 @@
 <div id="movie-ask" class="modal open" hidden><div class="box panel">
   <p id="movie-ask-text"></p>
   <div class="nf-btns"><button id="movie-yes" data-en="🎬 Watch">🎬 見る</button><button id="movie-no" data-en="Later">あとで</button></div>
+</div></div>
+
+<div id="quiz" class="modal open" hidden><div class="box panel">
+  <div class="head"><h2 id="quiz-title"></h2><span id="quiz-step"></span></div>
+  <div id="quiz-body"></div>
+</div></div>
+
+<div id="master" class="modal open" hidden><div class="box panel">
+  <div id="master-body"></div>
 </div></div>
 
 <div id="lock" class="modal open" hidden><div class="box panel">
@@ -334,6 +389,7 @@
   <h1 data-en="🥚 Raise a sturgeon">🥚 チョウザメを育てよう</h1>
   <p data-en-html="Start from a fertilized Siberian sturgeon egg.<br>Hatch → grow on the yolk → first meal → barbels and scutes → adult.<br>Every stage is recorded in your book.">シベリアチョウザメの受精卵からスタート。<br>ふ化 → 卵黄で成長 → はじめての餌 → ヒゲ・骨板（模様）→ おとなへ。<br>成長するたびに図鑑に記録されます。</p>
   <p class="beta-note" id="intro-beta"></p>
+  <p class="kan-note" id="intro-kan" hidden></p>
   <input id="intro-name" placeholder="名前（例：チョウ太）" data-en-ph="Name (e.g. Sturgie)" maxlength="12">
   <button id="intro-go" data-en="Get your egg">卵を受け取る</button>
   <button id="intro-lang" class="lang-btn"></button>

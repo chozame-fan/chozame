@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a7f93"/><stop offset="1" stop-color="#0b3644"/></linearGradient>
+    <linearGradient id="fish" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8c8358"/><stop offset="0.55" stop-color="#b8ad82"/><stop offset="1" stop-color="#efe6c9"/></linearGradient>
+    <radialGradient id="light" cx="0.5" cy="0" r="0.8"><stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect width="512" height="512" fill="url(#light)"/>
+  <!-- 底の小石 -->
+  <g fill="#0a2a33" opacity="0.55"><ellipse cx="90" cy="470" rx="60" ry="22"/><ellipse cx="250" cy="482" rx="80" ry="24"/><ellipse cx="420" cy="472" rx="70" ry="22"/></g>
+  <!-- チョウザメ（右向き） -->
+  <g transform="translate(256 270) rotate(-8)">
+    <!-- 尾びれ（上が長い） -->
+    <path d="M-150 -6 L-232 -62 L-205 -4 L-226 34 Z" fill="#6f6747"/>
+    <!-- 背びれ・腹びれ -->
+    <path d="M-95 -30 L-120 -62 L-70 -30 Z" fill="#6f6747"/>
+    <path d="M-80 22 L-100 52 L-55 26 Z" fill="#9c925f"/>
+    <path d="M60 24 L30 66 L95 30 Z" fill="#c9b46a"/>
+    <!-- 体 -->
+    <path d="M-160 -4 C-110 -40 40 -52 120 -32 C160 -22 195 -12 228 -4 C196 6 160 18 120 28 C40 46 -110 38 -160 -4 Z" fill="url(#fish)"/>
+    <!-- 背中の骨板 -->
+    <g fill="#efe6c9">
+      <path d="M-60 -41 l9 -16 l9 16z"/><path d="M-30 -45 l9 -17 l9 17z"/><path d="M0 -47 l10 -18 l10 18z"/><path d="M32 -46 l10 -18 l10 18z"/><path d="M64 -42 l9 -16 l9 16z"/><path d="M94 -36 l8 -14 l8 14z"/>
+    </g>
+    <!-- 斑点 -->
+    <g fill="#4d4630" opacity="0.6"><circle cx="-40" cy="-18" r="5"/><circle cx="-5" cy="-24" r="4"/><circle cx="30" cy="-15" r="5"/><circle cx="70" cy="-20" r="4"/><circle cx="-85" cy="-8" r="4"/><circle cx="10" cy="2" r="3"/><circle cx="55" cy="4" r="3"/></g>
+    <!-- 目とヒゲ -->
+    <circle cx="160" cy="-14" r="7" fill="#1a1712"/><circle cx="162" cy="-16" r="2.2" fill="#d8c27a"/>
+    <g stroke="#f4efe0" stroke-width="3.5" stroke-linecap="round"><path d="M178 8 q-2 16 -8 26"/><path d="M188 6 q-1 16 -5 25"/><path d="M198 4 q0 15 -3 23"/></g>
+  </g>
+  <!-- 泡 -->
+  <g fill="none" stroke="#dff6ff" stroke-width="4" opacity="0.8"><circle cx="400" cy="150" r="14"/><circle cx="430" cy="100" r="9"/><circle cx="412" cy="62" r="6"/></g>
+</svg>
