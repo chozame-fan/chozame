@@ -1,5 +1,6 @@
 // 節目のチョウザメクイズとバッジ。
-// 1歳・2歳・3歳・5歳・7歳・10歳になった時にクイズが出て、3問中2問正解でバッジがもらえる。
+// 1歳・2歳・3歳・5歳・7歳・10歳になった時にクイズが出て、3問中2問正解でバッジがもらえる（問題が4問以上ある節目は、毎回3問を選んで出す）。
+// note: は「チョウザメ ノート」（note.js）のどの章に書いてあるか。
 // 6つ全部そろうと称号「チョウザメ・マイスター」。そのあと、放流（エンディング）か育て続けるかを選べる。
 // 問題の答えは、図鑑の「参考にした資料」と同じく一般に知られている目安。
 import { tr } from './i18n.js';
@@ -13,30 +14,36 @@ export const BADGES = [
     id: 'y1', color: '#5fd3a0', deep: '#1f8a64', mark: '🎂', when: tr('1歳', 'Age 1'),
     name: tr('はじめましてバッジ', 'Hello Badge'), theme: tr('チョウザメってどんな魚？', 'What kind of fish is a sturgeon?'),
     qs: [
-      { q: tr('チョウザメの口のまわりにあるヒゲは、何本？', 'How many barbels (whiskers) does a sturgeon have by its mouth?'),
+      { note: 'face', q: tr('チョウザメの口のまわりにあるヒゲは、何本？', 'How many barbels (whiskers) does a sturgeon have by its mouth?'),
         a: [tr('4本', '4'), tr('2本', '2'), tr('6本', '6'), tr('10本', '10')],
         why: tr('口の前に4本のヒゲが1列にならんでいます。図鑑の「ヒゲが生えた」で見たヒゲです。', 'Four barbels sit in a row in front of the mouth — the ones you saw in "Barbels appear".') },
-      { q: tr('チョウザメは、サメのなかま？', 'Is a sturgeon a kind of shark?'),
+      { note: 'name', q: tr('チョウザメは、サメのなかま？', 'Is a sturgeon a kind of shark?'),
         a: [tr('サメとは別のなかま（古代魚）', 'No — a different, ancient group of fish'), tr('サメのなかま', 'Yes, a shark'), tr('クジラのなかま', 'A kind of whale'), tr('イルカのなかま', 'A kind of dolphin')],
         why: tr('名前に「鮫（サメ）」とつきますが、サメとは別のなかま。大昔から姿が変わらない「古代魚」です。', 'Its Japanese name contains "shark", but it isn\'t one. It\'s an "ancient fish" that has barely changed for ages.') },
       { q: tr('卵黄を使い切った赤ちゃんが、はじめに食べる生きたえさは？', 'After the yolk runs out, what live food do babies eat first?'),
         a: [tr('ブラインシュリンプ', 'Brine shrimp'), tr('ザリガニ', 'Crayfish'), tr('小さなカエル', 'Small frogs'), tr('海藻', 'Seaweed')],
         why: tr('生まれたてのブラインシュリンプ（0.5mmほどのエビの仲間）は動くので、仔魚が食いつきやすいえさです。', 'Newly hatched brine shrimp (about 0.5 mm) move around, so tiny larvae snap at them easily.') },
+      { note: 'name', q: tr('チョウザメの「サメ」は、どこがサメに似ているから？', 'Why is "shark" in its Japanese name?'),
+        a: [tr('体の形と、上下で形がちがう尾びれ', 'Its body shape and its uneven tail fin'), tr('するどい歯', 'Its sharp teeth'), tr('海にしかすまないこと', 'It only lives in the sea'), tr('背びれが三角だから', 'Its triangle back fin')],
+        why: tr('体全体の形や、上下アンバランスな尾びれがサメによく似ているからです。歯はありません。', 'The body shape and the uneven tail fin look like a shark. It has no teeth.') },
     ],
   },
   {
     id: 'y2', color: '#5fb4e8', deep: '#1f5f8f', mark: '🛡', when: tr('2歳', 'Age 2'),
     name: tr('よろいバッジ', 'Armor Badge'), theme: tr('からだのひみつ', 'Body secrets'),
     qs: [
-      { q: tr('チョウザメの体にある、よろいのような「骨板」は何列？', 'How many rows of armor plates (scutes) run along a sturgeon\'s body?'),
+      { note: 'body', q: tr('チョウザメの体にある、よろいのような「骨板」は何列？', 'How many rows of armor plates (scutes) run along a sturgeon\'s body?'),
         a: [tr('5列', '5'), tr('1列', '1'), tr('3列', '3'), tr('8列', '8')],
         why: tr('背中に1列、左右のわきに1列ずつ、お腹の両側に1列ずつで、合わせて5列です。', 'One on the back, one on each side, and one on each side of the belly — 5 rows in all.') },
-      { q: tr('「蝶鮫（チョウザメ）」の「蝶」は、どこから来た名前？', 'In Japanese it\'s "butterfly shark". Where does "butterfly" come from?'),
+      { note: 'name', q: tr('「蝶鮫（チョウザメ）」の「蝶」は、どこから来た名前？', 'In Japanese it\'s "butterfly shark". Where does "butterfly" come from?'),
         a: [tr('骨板の形が蝶に似ているから', 'Its scutes are shaped like butterflies'), tr('蝶を食べるから', 'It eats butterflies'), tr('ひれが蝶のように動くから', 'Its fins flap like wings'), tr('春に生まれるから', 'It\'s born in spring')],
         why: tr('うろこが変わった骨板の形が蝶に、体つきがサメに似ているので「蝶鮫」と呼ばれます。', 'The scutes look like butterflies and the body looks like a shark, so it was named "butterfly shark".') },
-      { q: tr('チョウザメの口は、頭のどこにある？', 'Where is a sturgeon\'s mouth?'),
+      { note: 'face', q: tr('チョウザメの口は、頭のどこにある？', 'Where is a sturgeon\'s mouth?'),
         a: [tr('頭の下側', 'Under its head'), tr('鼻先の一番前', 'At the very tip of the snout'), tr('頭の上', 'On top of its head'), tr('目の横', 'Next to its eyes')],
         why: tr('口は頭の下側。筒のようにのばして、水底のえさを吸いこみます。', 'The mouth is underneath. It sticks out like a tube to suck up food from the bottom.') },
+      { note: 'body', q: tr('チョウザメの体の骨は、ほとんど何でできている？', 'What is most of a sturgeon\'s skeleton made of?'),
+        a: [tr('やわらかい軟骨', 'Soft cartilage'), tr('ぜんぶ硬い骨', 'All hard bone'), tr('骨はない', 'It has no bones'), tr('貝がら', 'Shell')],
+        why: tr('「硬骨魚」のなかまですが、骨の多くは軟骨です。かわりに体の外側を硬い骨板が守っています。', 'It\'s grouped with bony fish, yet most of its skeleton is cartilage. Hard scutes protect it from the outside.') },
     ],
   },
   {
@@ -58,13 +65,13 @@ export const BADGES = [
     id: 'y5', color: '#b48ef0', deep: '#5b3fa0', mark: '📡', when: tr('5歳', 'Age 5'),
     name: tr('ヒゲセンサーバッジ', 'Sensor Badge'), theme: tr('えさを探すしくみ', 'How they find food'),
     qs: [
-      { q: tr('4本のヒゲは、何に使っている？', 'What are the four barbels for?'),
+      { note: 'face', q: tr('4本のヒゲは、何に使っている？', 'What are the four barbels for?'),
         a: [tr('えさの味やにおいを感じる', 'Sensing the taste and smell of food'), tr('泳ぐ速さを上げる', 'Swimming faster'), tr('敵をおどかす', 'Scaring enemies'), tr('卵を守る', 'Guarding eggs')],
         why: tr('ヒゲには味を感じるしくみがあり、水底を探って砂の中のえさを見つけます。', 'The barbels can taste. They drag along the bottom to find food in the sand.') },
       { q: tr('チョウザメの鼻先は、ある「見えないもの」を感じとれる。それは？', 'A sturgeon\'s snout can sense something invisible. What?'),
         a: [tr('生き物が出す弱い電気', 'Weak electricity from living things'), tr('天気の変化', 'Changes in the weather'), tr('人の声', 'Human voices'), tr('月の光', 'Moonlight')],
         why: tr('鼻先の下に電気を感じる小さな穴がたくさんあり、砂にかくれた生き物の弱い電気でえさを探します。', 'Tiny pores under the snout sense electricity, so it can find animals hiding in the sand.') },
-      { q: tr('おとなのチョウザメの口には、歯がある？', 'Do adult sturgeon have teeth?'),
+      { note: 'face', q: tr('おとなのチョウザメの口には、歯がある？', 'Do adult sturgeon have teeth?'),
         a: [tr('ない', 'No'), tr('するどい歯がたくさん', 'Lots of sharp teeth'), tr('前歯だけ2本', 'Just two front teeth'), tr('サメのように何列も', 'Many rows, like a shark')],
         why: tr('おとなになると歯はなく、えさを丸ごと吸いこんで食べます。', 'Adults have no teeth. They suck their food in whole.') },
     ],
@@ -73,7 +80,7 @@ export const BADGES = [
     id: 'y7', color: '#e8b25a', deep: '#9a6418', mark: '🦕', when: tr('7歳', 'Age 7'),
     name: tr('古代魚バッジ', 'Ancient Fish Badge'), theme: tr('長い長い歴史', 'A very long history'),
     qs: [
-      { q: tr('チョウザメのなかまは、いつごろから地球にいる？', 'Since when have sturgeon been on Earth?'),
+      { note: 'name', q: tr('チョウザメのなかまは、いつごろから地球にいる？', 'Since when have sturgeon been on Earth?'),
         a: [tr('約2億年前（恐竜の時代）', 'About 200 million years ago (dinosaur times)'), tr('約1万年前', 'About 10,000 years ago'), tr('約100万年前', 'About 1 million years ago'), tr('約1000年前', 'About 1,000 years ago')],
         why: tr('恐竜がいた時代から、ほとんど姿を変えずに生きてきた「生きた化石」です。', 'They\'ve lived since the dinosaurs with hardly any change — a "living fossil".') },
       { q: tr('昔、北海道の石狩川や天塩川にものぼってきたチョウザメの名前は？', 'Which sturgeon once swam up rivers in Hokkaido, Japan?'),
@@ -91,12 +98,18 @@ export const BADGES = [
       { q: tr('世界最大のチョウザメ「オオチョウザメ（ベルーガ）」は、大きいもので全長どれくらい？', 'How long can the biggest sturgeon, the beluga, grow?'),
         a: [tr('5m以上', 'Over 5 m'), tr('1mくらい', 'About 1 m'), tr('2mくらい', 'About 2 m'), tr('3mくらい', 'About 3 m')],
         why: tr('記録では全長7mをこえたとされるものもいます。今は大きな個体はとても少なくなりました。', 'Some records say over 7 m. Very few giants are left today.') },
-      { q: tr('長生きなチョウザメのなかまは、何歳くらいまで生きる？', 'How long can long-lived sturgeon live?'),
+      { note: 'grow', q: tr('長生きなチョウザメのなかまは、何歳くらいまで生きる？', 'How long can long-lived sturgeon live?'),
         a: [tr('100歳以上', 'Over 100 years'), tr('5歳くらい', 'About 5 years'), tr('10歳くらい', 'About 10 years'), tr('30歳くらい', 'About 30 years')],
         why: tr('北アメリカのレイクスタージョンでは、150歳をこえると考えられた記録もあります。', 'One lake sturgeon in North America was estimated to be over 150 years old.') },
       { q: tr('世界のチョウザメは、今どうなっている？', 'What is happening to sturgeon around the world?'),
         a: [tr('多くの種類が絶滅の危機', 'Many species are endangered'), tr('増えすぎて困っている', 'There are too many'), tr('どこにでもたくさんいる', 'They\'re common everywhere'), tr('すでに全部いなくなった', 'They\'re all extinct')],
         why: tr('とりすぎや川のダムで数が減り、多くの種類が絶滅の危機です。1998年からすべてのチョウザメが国際的な取引の決まり（ワシントン条約）で守られ、育てた稚魚を川に放流して増やす取り組みも続いています。', 'Overfishing and dams made them rare. Since 1998 all sturgeon are protected by an international trade treaty (CITES), and people release young fish to help them recover.') },
+      { note: 'life', q: tr('多くのチョウザメは、海で育って卵を産みに川をのぼる。こういう魚を何という？', 'Most sturgeon grow in the sea and swim up rivers to spawn. What are such fish called?'),
+        a: [tr('回遊魚', 'Migratory fish'), tr('深海魚', 'Deep-sea fish'), tr('熱帯魚', 'Tropical fish'), tr('淡水魚だけ', 'Only freshwater fish')],
+        why: tr('海と川を行き来する魚を「回遊魚」といいます。一生を川や湖だけで過ごす種類もいます。', 'Fish that travel between sea and river are called migratory fish. Some kinds stay in rivers and lakes all their lives.') },
+      { note: 'home', q: tr('チョウザメのなかまが主にすんでいるのは？', 'Where do sturgeon mainly live?'),
+        a: [tr('北半球の温帯〜寒帯', 'Cool and cold parts of the Northern Hemisphere'), tr('赤道の近くの暑い海', 'Hot seas near the equator'), tr('南極の海だけ', 'Only the Antarctic sea'), tr('砂漠のオアシス', 'Desert oases')],
+        why: tr('ユーラシア大陸や北アメリカなど、北半球の冷たい水にすんでいます。', 'They live in cool waters of the north, in Eurasia and North America.') },
     ],
   },
 ];

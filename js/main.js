@@ -12,6 +12,7 @@ import {
 import { tr, EN, LANG, setLang, applyStatic } from './i18n.js';
 import { PARTNERS, VISIT } from './partner.js';
 import { BADGES, badgeById, badgeSVG, MASTER, PASS, shuffle, setPhotoSource } from './quiz.js';
+import { NOTE, noteById, TIPS, MAME } from './note.js';
 applyStatic();
 
 const $ = (s) => document.querySelector(s);
@@ -30,6 +31,7 @@ const OFFICIAL_URL = 'https://chozame-fan.github.io/chozame/';
 const UPDATED = '11/7';
 const BETA = tr(`β版・毎日なおしています（${UPDATED} 更新）`, `Beta — improved every day (updated ${UPDATED})`);
 const NEWS = [ // 新しい順。直したら上に足す
+  ['11/7', tr('図鑑に「📒 ノート」（チョウザメの読みもの）。節目の前に豆知識が出て、クイズも5問ふえました', 'New "📒 Notes" page in the book. Tips appear before each milestone, and 5 new quiz questions')],
   ['11/7', tr(`節目のチョウザメクイズとバッジ。6つ集めると称号「${MASTER}」、そのあと放流のエンディングも選べます`, `Milestone sturgeon quizzes and badges. Collect all 6 for the title "${MASTER}", then choose a release ending`)],
   ['11/3', tr('English に切りかえられるように（図鑑・お知らせ・物語カードも）', 'You can now play in English (book, news and story cards too)')],
   ['11/3', tr('育てるのは10歳までずっと無料に。合言葉は物語カードの飾りだけ', 'Raising is now free all the way to age 10. Codes only add story-card decorations')],
@@ -632,6 +634,7 @@ function bubbleText() {
   if (S.water < 45) return tr('水がにごってきた…', 'The water is getting cloudy…');
   if (tempFactor() < 0.8) return S.temp < 18 ? tr('水が冷たくて元気が出ない', 'Too cold to feel lively') : tr('水があたたかすぎる…', 'The water is too warm…');
   if (S.satiety > 90) return tr('お腹いっぱい', 'Full');
+  { const k = Math.floor(performance.now() / 6000) % 5; if (k === 4) return MAME[Math.floor(performance.now() / 30000) % MAME.length]; }
   return (EN ? ['Feeling the bottom with its barbels', 'Swimming calmly', 'Gliding over the sand'] : ['ヒゲで底をさぐっている', 'ゆったり泳いでいる', '砂の上をすべるように泳ぐ'])[Math.floor(performance.now() / 6000) % 3];
 }
 function meter(id, v) { const el = $(id); el.style.width = `${clamp(v, 0, 100)}%`; el.style.background = v < 25 ? '#ff6b6b' : v < 50 ? '#ffc04d' : '#5fd3a0'; }
@@ -701,6 +704,7 @@ function openZukan(tab = 'grow') {
   document.querySelectorAll('#zukan .tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   const body = $('#zukan-body'); body.innerHTML = '';
   const got = (tab === 'grow' ? ZUKAN.filter(z => S.zukan[z.id]).length + '/' + ZUKAN.length : tab === 'food' ? Object.keys(S.foods).length + '/' + FOODS.length : tab === 'badge' ? badgeCount() + '/' + BADGES.length : '');
+  if (tab === 'note') $('#zukan-count').textContent = '';
   $('#zukan-count').textContent = got ? tr(`${got} 発見`, `${got} found`) : '';
   if (tab === 'grow') {
     { const b = document.createElement('button'); b.className = 'story-btn'; b.textContent = tr(`🖼 ${S.name}の物語カードを作る`, `🖼 Make ${S.name}'s story card`); b.onclick = () => showStoryCard(); body.appendChild(b); }
@@ -725,6 +729,8 @@ function openZukan(tab = 'grow') {
     }
   } else if (tab === 'badge') {
     renderBadges(body);
+  } else if (tab === 'note') {
+    renderNote(body);
   } else if (tab === 'memory') {
     const list = R.released || [];
     if (!list.length) body.innerHTML = `<div class="src"><p>${tr(`まだ放流した子はいません。全長${RELEASE_MIN}cmを過ぎると、情報欄の「🌊 海へ放流する」から海へ送り出せます。`, `No fish released yet. Once a fish is over ${RELEASE_MIN} cm, use "🌊 Release to the sea" in the info panel.`)}</p></div>`;
@@ -1101,6 +1107,24 @@ const quizOpen = () => !$('#quiz').hidden || !$('#master').hidden;
 // 7歳のバッジは、その節目に着いた子の図鑑の写真を使う
 const reachedPhoto = (id) => { const who = R.reached?.[id]?.name; const st = R.list.find(x => x.name === who && x.zukan[id]?.img) || R.list.find(x => x.zukan[id]?.img); return st ? st.zukan[id].img : null; };
 setPhotoSource((id) => R?.badges?.[id]?.img || (R ? reachedPhoto(id) : null));
+// ノートの章を、クイズの解説の中で開いて読めるようにする
+function noteRef(id) {
+  const n = noteById(id); if (!n) return '';
+  return `<details class="note-ref"><summary>${tr(`📒 ノート「${n.title}」に書いてあるよ`, `📒 It's in the notes: "${n.title}"`)}</summary><ul>${n.lines.map(l => `<li>${l}</li>`).join('')}</ul>${n.fix ? `<p class="note-fix">${n.fix}</p>` : ''}</details>`;
+}
+function renderNote(body) {
+  body.innerHTML = `<div class="src note-page"><h3>${tr('📒 チョウザメとは', '📒 What is a sturgeon?')}</h3><p class="note-lead">${tr('手書きのノートをまとめた読みものです。<mark>ピンク</mark>のところは大事なことば。クイズのヒントにもなるよ。', 'A reading page made from handwritten notes. <mark>Pink</mark> words are the key ones — handy for the quizzes.')}</p>
+    ${NOTE.map(n => `<section><h4>${n.title}</h4><ul>${n.lines.map(l => `<li>${l}</li>`).join('')}</ul>${n.fix ? `<p class="note-fix">✏️ ${tr('ちょっと訂正：', 'A small fix: ')}${n.fix}</p>` : ''}</section>`).join('')}</div>`;
+}
+// 節目の45日前になったら、次のクイズのヒントになる豆知識を1回だけ出す
+function maybeTip() {
+  if (S.dev < 9) return;
+  R.tips ||= {};
+  for (const b of BADGES) {
+    const at = ZUKAN.find(z => z.id === b.id)?.at; if (!at || R.tips[b.id] || R.badges?.[b.id]) continue;
+    if (S.age >= at - 45 && S.age < at) { R.tips[b.id] = 1; toast(tr(`📒 豆知識：${TIPS[b.id].t}（図鑑の「📒 ノート」で読めるよ）`, `📒 Tip: ${TIPS[b.id].t} (Read more in Book → 📒 Notes)`), true); return; }
+  }
+}
 function reachBadge(id, who) {
   R.reached ||= {};
   if (!R.reached[id]) R.reached[id] = { name: who, date: Date.now() };
@@ -1127,7 +1151,7 @@ function maybeOfferQuiz() {
 }
 function openQuiz(id, lead = '') {
   const b = badgeById(id);
-  quiz = { b, i: -1, ok: 0, qs: shuffle(b.qs).map(q => ({ ...q, order: shuffle(q.a.map((t, k) => ({ t, right: k === 0 }))) })) };
+  quiz = { b, i: -1, ok: 0, qs: shuffle(b.qs).slice(0, 3).map(q => ({ ...q, order: shuffle(q.a.map((t, k) => ({ t, right: k === 0 }))) })) };
   $('#quiz-title').textContent = tr(`🏅 ${b.when}のクイズ`, `🏅 ${b.when} quiz`);
   $('#quiz-step').textContent = '';
   $('#quiz-body').innerHTML = `<div class="q-intro">${badgeSVG(b, true, 110)}<p>${lead}</p><p>${tr(`テーマ：<b>${b.theme}</b><br>${quiz.qs.length}問中${PASS}問正解で<b>「${b.name}」</b>がもらえるよ。`, `Theme: <b>${b.theme}</b><br>Get ${PASS} of ${quiz.qs.length} right to win the <b>${b.name}</b>.`)}</p>
@@ -1146,7 +1170,7 @@ function quizAnswer(k) {
   if (right) quiz.ok++;
   document.querySelectorAll('.q-choices button').forEach((el, j) => { el.disabled = true; if (q.order[j].right) el.classList.add('right'); else if (j === k) el.classList.add('wrong'); });
   const w = $('.q-why'); w.hidden = false;
-  w.innerHTML = `<b class="${right ? 'ok' : 'ng'}">${right ? tr('⭕ 正解！', '⭕ Correct!') : tr('❌ ざんねん', '❌ Not quite')}</b><p>${q.why}</p><button class="q-go" data-q="next">${quiz.i + 1 < quiz.qs.length ? tr('次の問題へ', 'Next question') : tr('結果を見る', 'See result')}</button>`;
+  w.innerHTML = `<b class="${right ? 'ok' : 'ng'}">${right ? tr('⭕ 正解！', '⭕ Correct!') : tr('❌ ざんねん', '❌ Not quite')}</b><p>${q.why}</p>${noteRef(q.note)}<button class="q-go" data-q="next">${quiz.i + 1 < quiz.qs.length ? tr('次の問題へ', 'Next question') : tr('結果を見る', 'See result')}</button>`;
 }
 function quizResult() {
   const b = quiz.b, pass = quiz.ok >= PASS;
@@ -1395,7 +1419,7 @@ function frame(dt) {
     tank.update(dt, time, camera, camTarget);
     others.update(dt, time, S.dev >= 0 ? F.pos : egg.position, Math.max(len() * 0.6, 1));
     updateCamera(dt);
-    if ((time * 4 | 0) !== ((time - dt) * 4 | 0)) { updateHUD(); renderTabs(); maybeOfferQuiz(); }
+    if ((time * 4 | 0) !== ((time - dt) * 4 | 0)) { updateHUD(); renderTabs(); maybeOfferQuiz(); maybeTip(); }
   }
   renderer.render(scene, camera);
   if (pendingSnaps.length && S) { // 図鑑の写真は描いた直後に撮る

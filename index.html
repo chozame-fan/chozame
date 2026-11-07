@@ -124,6 +124,19 @@
   #newfish-go { background: var(--acc); color: #0b2a33; border: none; }
   .src.move { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; }
   .src h3 { margin: 6px 0; font-size: 15px; }
+  .note-page { background: #fbfaf4; color: #2a3236; border-radius: 12px; padding: 14px 16px; background-image: repeating-linear-gradient(#fbfaf4 0 27px, #d9e3e8 27px 28px); border-left: 6px solid #3b8fd9; }
+  .note-page h3 { color: #1b2b33; }
+  .note-page h4 { margin: 14px 0 2px; font-size: 14px; color: #1b2b33; text-decoration: underline; text-underline-offset: 4px; }
+  .note-page ul { margin: 0; padding-left: 18px; }
+  .note-page, .note-page p, .note-page li { line-height: 28px; }
+  .note-page h4 { line-height: 28px; margin: 28px 0 0; }
+  .note-page .note-fix { line-height: 1.6; padding: 6px 9px; }
+  .note-page mark, .note-ref mark, .note-lead mark { background: linear-gradient(transparent 45%, #ff9cc8 45%); color: inherit; padding: 0 1px; }
+  .note-fix { font-size: 12px; background: #fff3d6; color: #5a4210; border-radius: 8px; padding: 6px 9px; margin: 6px 0 0; }
+  .note-ref { margin: 6px 0 10px; font-size: 13px; text-align: left; }
+  .note-ref mark { background: linear-gradient(transparent 60%, rgba(255,120,180,.6) 60%); }
+  .note-ref summary { cursor: pointer; color: #8fe3ff; }
+  .note-ref ul { margin: 6px 0; padding-left: 18px; }
   .src .row { display: flex; gap: 8px; flex-wrap: wrap; }
   #save-code { width: 100%; height: 70px; margin: 8px 0; font: 11px/1.4 ui-monospace, monospace; background: rgba(255,255,255,.06); color: var(--tx); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
   #save-msg { color: var(--acc); font-size: 13px; }
@@ -312,7 +325,7 @@
 
 <div id="zukan" class="modal"><div class="box panel">
   <div class="head"><h2 data-en="📘 Sturgeon Book">📘 チョウザメ図鑑</h2><span id="zukan-count"></span><button id="zukan-close" class="x" data-en="Close">閉じる</button></div>
-  <div class="tabs"><button data-tab="grow" data-en="Growth">成長の記録</button><button data-tab="badge" data-en="🏅 Badges">🏅 バッジ</button><button data-tab="food" data-en="Food">えさ</button><button data-tab="memory" data-en="Memories">思い出</button><button data-tab="src" data-en="Sources & settings">参考にした資料</button><button data-tab="meet" data-en="Places to visit">会いに行ける場所</button><button data-tab="news" data-en="News">お知らせ</button></div>
+  <div class="tabs"><button data-tab="grow" data-en="Growth">成長の記録</button><button data-tab="badge" data-en="🏅 Badges">🏅 バッジ</button><button data-tab="note" data-en="📒 Notes">📒 ノート</button><button data-tab="food" data-en="Food">えさ</button><button data-tab="memory" data-en="Memories">思い出</button><button data-tab="src" data-en="Sources & settings">参考にした資料</button><button data-tab="meet" data-en="Places to visit">会いに行ける場所</button><button data-tab="news" data-en="News">お知らせ</button></div>
   <div id="zukan-body"></div>
 </div></div>
 
