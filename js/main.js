@@ -11,7 +11,7 @@ import {
 } from './data.js';
 import { tr, EN, LANG, setLang, applyStatic } from './i18n.js';
 import { PARTNERS, VISIT } from './partner.js';
-import { BADGES, badgeById, badgeSVG, MASTER, PASS, shuffle } from './quiz.js';
+import { BADGES, badgeById, badgeSVG, MASTER, PASS, shuffle, setPhotoSource } from './quiz.js';
 applyStatic();
 
 const $ = (s) => document.querySelector(s);
@@ -1098,6 +1098,9 @@ function startMovie(trial = false) {
 const badgeCount = () => BADGES.filter(b => R.badges?.[b.id]).length;
 let quizQ = [], quiz = null;
 const quizOpen = () => !$('#quiz').hidden || !$('#master').hidden;
+// 7歳のバッジは、その節目に着いた子の図鑑の写真を使う
+const reachedPhoto = (id) => { const who = R.reached?.[id]?.name; const st = R.list.find(x => x.name === who && x.zukan[id]?.img) || R.list.find(x => x.zukan[id]?.img); return st ? st.zukan[id].img : null; };
+setPhotoSource((id) => R?.badges?.[id]?.img || (R ? reachedPhoto(id) : null));
 function reachBadge(id, who) {
   R.reached ||= {};
   if (!R.reached[id]) R.reached[id] = { name: who, date: Date.now() };
@@ -1149,7 +1152,7 @@ function quizResult() {
   const b = quiz.b, pass = quiz.ok >= PASS;
   $('#quiz-step').textContent = '';
   if (pass) {
-    R.badges[b.id] ||= { date: Date.now(), name: R.reached?.[b.id]?.name || S.name, score: quiz.ok };
+    R.badges[b.id] ||= { date: Date.now(), name: R.reached?.[b.id]?.name || S.name, score: quiz.ok, img: b.id === 'y7' ? reachedPhoto(b.id) : undefined };
     const done = badgeCount() === BADGES.length && !R.master;
     if (done) R.master = Date.now();
     save();
