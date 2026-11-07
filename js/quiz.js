@@ -102,6 +102,30 @@ export const BADGES = [
 ];
 export const badgeById = (id) => BADGES.find(b => b.id === id);
 
+// バッジごとの表情（目・口・ほっぺ）。座標は魚の絵の中（目の中心は 39,58）
+const EYE = '<circle cx="39" cy="58" r="3.6" fill="#10232a"/><circle cx="40.2" cy="56.8" r="1.3" fill="#fff"/>';
+const BLUSH = '<ellipse cx="44" cy="64" rx="3.6" ry="2" fill="#ff8fa8" opacity=".75"/>';
+const LINE = 'fill="none" stroke="#10232a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+const FACES = {
+  y1: `<path d="M35.5,59 Q39,54.6 42.5,59" ${LINE}/><path d="M25.5,63 Q28.5,66 31.5,63.2" ${LINE}/>${BLUSH}`, // にっこり
+  y2: `${EYE}<path d="M34.5,52.6 L43.5,54.8" ${LINE} stroke-width="2.2"/><path d="M26,64 L31,63.6" ${LINE}/>`, // キリッ
+  y3: `<path d="M35.6,57 L39,59 L35.6,61" ${LINE}/><ellipse cx="44" cy="64" rx="4.6" ry="2.6" fill="#ff7c9c" opacity=".85"/><path d="M41.5,62.6 l1.2,1.8 M44,62.4 l1.2,1.8 M46.5,62.6 l1.2,1.8" stroke="#fff" stroke-width=".9" stroke-linecap="round"/><path d="M26,63.4 Q28,64.8 30,63.4" ${LINE} stroke-width="1.4"/>`, // てれ顔
+  y5: `<circle cx="39" cy="58" r="4.8" fill="#10232a"/><path d="M40.6,54.6 l.7,1.6 l1.6,.7 l-1.6,.7 l-.7,1.6 l-.7,-1.6 l-1.6,-.7 l1.6,-.7 Z" fill="#fff"/><circle cx="37.4" cy="60" r=".9" fill="#fff"/><path d="M25.5,62.8 Q28.5,66.4 31.5,63" ${LINE}/>${BLUSH}`, // キラキラ
+  y7: `${EYE}<path d="M34.6,55.6 Q39,54 43.6,55.6 L43.6,57 Q39,55.8 34.6,57 Z" fill="#3b6f7e"/><path d="M34.6,56 Q39,54.6 43.6,56" ${LINE} stroke-width="1.5"/><path d="M25.8,63.8 Q29,64.6 31.8,62.2" ${LINE}/>`, // ドヤ顔
+  y10: `<path d="M35.2,55.8 L39.6,58 L35.2,60.2" ${LINE}/><path d="M25.2,62.4 Q28.6,62 32,62.6 Q31,67.6 28,67.4 Q25.6,67 25.2,62.4 Z" fill="#10232a"/><ellipse cx="28.6" cy="66" rx="2" ry="1.1" fill="#ff7c9c"/>${BLUSH}`, // 大笑い
+  master: `<circle cx="39" cy="58" r="4.4" fill="#10232a"/><path d="M40.4,54.8 l.6,1.4 l1.4,.6 l-1.4,.6 l-.6,1.4 l-.6,-1.4 l-1.4,-.6 l1.4,-.6 Z" fill="#fff"/><path d="M25.5,62.8 Q28.5,66.4 31.5,63" ${LINE}/>${BLUSH}`,
+};
+// バッジごとのかぶり物（頭の上）
+const crown = (s) => `<g transform="translate(37,50) scale(${s}) translate(-37,-50)"><path d="M29.5,50 L30.5,41 L34,45.5 L37.5,38.5 L41,45.5 L44.5,41 L45.5,50 Z" fill="#ffd23f" stroke="#b07a10" stroke-width="1" stroke-linejoin="round"/><circle cx="37.5" cy="46.5" r="1.6" fill="#ff5f7e"/><circle cx="33" cy="47.5" r="1.1" fill="#5fb4e8"/><circle cx="42" cy="47.5" r="1.1" fill="#5fd3a0"/></g>`;
+const HATS = {
+  y1: `<path d="M30,52 L37,33 L44,50.5 Z" fill="#ffd76a" stroke="#fff" stroke-width=".8" stroke-linejoin="round"/><path d="M32.6,45 L41.2,43.6 M34.8,39 L39.4,38.4" stroke="#ff8fa8" stroke-width="2.4" stroke-linecap="round"/><circle cx="37" cy="33" r="2.8" fill="#ff8fa8"/>`, // パーティー帽
+  y2: `<path d="M27.5,54 Q29,42 38,41.5 Q47,41.5 48.5,51 Z" fill="#c9d6dc" stroke="#6f8790" stroke-width="1"/><path d="M27.5,54 Q38,49 48.5,51" fill="none" stroke="#6f8790" stroke-width="1.6"/><path d="M38,41.5 Q41,34 47,33.5 Q43,37 42,42" fill="#e8584a"/>`, // かぶと
+  y3: `<path d="M44,49.5 L37.5,44.5 L38,53 Z M44,49.5 L50.5,44 L50.5,53.5 Z" fill="#ff7caa" stroke="#fff" stroke-width=".8" stroke-linejoin="round"/><circle cx="44" cy="49.3" r="2.2" fill="#ffd1e0"/>`, // リボン
+  y5: `<path d="M24.5,57 Q27,43.5 40,43 Q51,43.5 52.5,53.5 Q45,49.6 37,50.6 Q29.5,51.8 24.5,57 Z" fill="#8a6ad6" stroke="#fff" stroke-width=".8"/><circle cx="31" cy="48.8" r="1" fill="#fff" opacity=".7"/><path d="M40,43.2 Q40.5,37 44,34" fill="none" stroke="#5b3fa0" stroke-width="1.6" stroke-linecap="round"/><circle cx="44.4" cy="33.6" r="2.6" fill="#ffd76a"/>`, // アンテナ付きフード
+  y7: `<path d="M31,50.5 Q31.5,41.5 38.5,41.5 Q45.5,41.5 46,50 Z" fill="#cfb27a"/><path d="M31.3,47.4 Q38.5,45.8 45.8,47.2 L45.9,49.4 Q38.5,47.8 31.2,49.6 Z" fill="#7a5a2a"/><ellipse cx="38.5" cy="50.6" rx="13" ry="2.6" fill="#b8955a"/>`, // 探検帽
+  y10: crown(1),
+  master: crown(1.25),
+};
 // まるいステッカーのバッジ（SVG）。got=false は灰色のシルエット
 export function badgeSVG(b, got = true, size = 96) {
   const k = b ? b.id : 'master';
@@ -122,7 +146,7 @@ export function badgeSVG(b, got = true, size = 96) {
     <path d="M50,70 L46,80 L58,72 Z" fill="${body}"/>
     ${[50, 59, 68, 77].map((x, i) => `<path d="M${x},${49 - (i === 0 ? 0 : 0.5)} l3,-3 l3,3 l-3,3 Z" fill="${got ? '#e9f6f8' : '#3d5258'}"/>`).join('')}
     <path d="M27,66 l-1,7 M31,67 l0,7 M35,68 l1,6" stroke="${body}" stroke-width="1.8" stroke-linecap="round"/>
-    ${got ? `<circle cx="39" cy="58" r="3.6" fill="#10232a"/><circle cx="40.2" cy="56.8" r="1.3" fill="#fff"/><ellipse cx="44" cy="64" rx="3.6" ry="2" fill="#ff8fa8" opacity=".75"/>` : ''}
+    ${got ? (FACES[k] || FACES.y1) + `<g transform="translate(0,${k === 'y3' ? 0 : 2.8})">${HATS[k] || ''}</g>` : ''}
   </g>
   ${mark ? `<text x="88" y="38" font-size="20" text-anchor="middle">${mark}</text>` : `<text x="86" y="40" font-size="22" font-weight="800" fill="#8aa3a9" text-anchor="middle">?</text>`}
   <path d="M26,90 Q60,100 94,90 L92,104 Q60,112 28,104 Z" fill="${got ? c2 : '#3a4c51'}"/>
