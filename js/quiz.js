@@ -102,112 +102,34 @@ export const BADGES = [
 ];
 export const badgeById = (id) => BADGES.find(b => b.id === id);
 
-// ---------------- バッジの絵 ----------------
-// 金属のふち＋色を流しこんだ「ピンバッジ」でそろえて、形と色はバッジごとに変える。
-// 魚は節目ごとに大きくなる（1歳はちっちゃく、10歳は本物の写真で顔いっぱい）
-let photoOf = () => null; // 7歳の写真：その子の図鑑の写真（main.js から渡す）
-export const setPhotoSource = (f) => { photoOf = f; };
-const REAL = new URL('../img/badge-oomono.jpg', import.meta.url).href; // 10歳：水族館で撮ったチョウザメの顔
-
-const METAL = { gold: ['#fff6cf', '#e3b64e', '#a8741c'], silver: ['#ffffff', '#c7d1d6', '#7d8c94'], copper: ['#ffe1c4', '#d48c5c', '#8c4d28'] };
-const metal = (id, m) => `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${METAL[m][0]}"/><stop offset=".5" stop-color="${METAL[m][1]}"/><stop offset="1" stop-color="${METAL[m][2]}"/></linearGradient>`;
-const enamel = (id, a, b) => `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient>`;
-const shine = (d) => `<path d="${d}" fill="#fff" opacity=".28"/>`;
-// 下の小さな金属の札
-const plate = (txt, m, y = 96, w = 34) => `<rect x="${60 - w / 2}" y="${y}" width="${w}" height="14" rx="7" fill="url(#${m})" stroke="#00000022" stroke-width=".6"/><text x="60" y="${y + 10.4}" font-size="9.5" font-weight="800" fill="#4a3208" text-anchor="middle">${txt}</text>`;
-
-// チョウザメ（左向き・長さ約106）。c: 色、line: 金属の線
-function fish(cx, cy, s, c, line, rot = 0, flip = false) {
-  const sc = Array.from({ length: 7 }, (_, i) => { const x = 30 + i * 7, y = 13.2 - Math.sin((i + 1) / 8 * Math.PI) * 1.4; return `<path d="M${x - 2.6},${y} L${x},${y - 2.8} L${x + 2.6},${y} L${x},${y + 2.2} Z" fill="${c.scute}" stroke="${line}" stroke-width=".7"/>`; }).join('');
-  const dots = Array.from({ length: 8 }, (_, i) => `<circle cx="${30 + i * 7}" cy="${22.4 - Math.sin(i / 7 * Math.PI) * .6}" r="1.1" fill="${c.scute}"/>`).join('');
-  return `<g transform="translate(${cx},${cy}) rotate(${rot}) scale(${flip ? -s : s},${s}) translate(-53,-22)">
-    <path d="M74,14.4 L80.5,5.5 L84.5,15.4 Z M76,30.6 L79,37.5 L83.4,29.8 Z M58,33.4 L56,39.6 L64.4,33 Z" fill="${c.fin}" stroke="${line}" stroke-width="1.2" stroke-linejoin="round"/>
-    <path d="M0,22 C6,17 16,14 30,13 C52,11 70,12 82,16 C86,17 89,16 92,13 L104,2 C101,12 101,18 103,22 C101,26 101,32 106,42 L92,30 C88,28 85,28 82,29 C68,34 50,35 32,33 C18,32 8,28 0,22 Z" fill="${c.body}" stroke="${line}" stroke-width="1.6" stroke-linejoin="round"/>
-    <path d="M7,25.4 C17,30.2 31,32 46,32 C62,32 74,30.2 83,28.4 C72,33.6 52,35.4 33,34.6 C20,33.8 12,30.4 7,25.4 Z" fill="${c.belly}"/>
-    <path d="M26,31 L19,42.5 L36.5,33 Z" fill="${c.fin}" stroke="${line}" stroke-width="1.2" stroke-linejoin="round"/>
-    ${sc}${dots}
-    <path d="M5,25 l-.8,4.6 M7.6,26 l-.3,4.8 M10.2,26.8 l.2,4.8 M12.8,27.4 l.6,4.6" stroke="${line}" stroke-width="1.1" stroke-linecap="round"/>
-    <circle cx="14.5" cy="19.2" r="2.6" fill="#13252b"/><circle cx="15.4" cy="18.3" r=".9" fill="#fff"/>
-  </g>`;
-}
-const SHAPES = {
-  y1: 'M60,8 C86,8 102,44 102,70 C102,96 84,112 60,112 C36,112 18,96 18,70 C18,44 34,8 60,8 Z',
-  y2: 'M60,8 L105,34 L105,86 L60,112 L15,86 L15,34 Z',
-  y3: 'M60,108 C20,82 6,56 18,36 C30,16 52,20 60,38 C68,20 90,16 102,36 C114,56 100,82 60,108 Z',
-  y5: 'M60,6 A54,54 0 1 1 59.9,6 Z',
-  y7: 'M18,10 L102,14 L100,112 L16,108 Z',
-  y10: Array.from({ length: 48 }, (_, i) => { const a = i / 48 * Math.PI * 2, r = i % 2 ? 51 : 56; return `${i ? 'L' : 'M'}${(60 + Math.cos(a) * r).toFixed(1)},${(60 + Math.sin(a) * r).toFixed(1)}`; }).join(' ') + ' Z',
-  master: 'M60,16 A42,42 0 1 1 59.9,16 Z',
-};
-const ART = {
-  // 1歳：卵の形。ちっちゃい赤ちゃんが顔を出す
-  y1: () => `<defs>${metal('m1', 'gold')}${enamel('e1', '#c9f5e6', '#7fd8bd')}</defs>
-    <path d="${SHAPES.y1}" fill="url(#e1)" stroke="url(#m1)" stroke-width="6"/>
-    <path d="M22,82 L32,75 L42,83 L52,75 L60,82 L68,75 L78,83 L88,75 L98,82 C98,100 82,108 60,108 C38,108 22,100 22,82 Z" fill="#fdf7e6" stroke="url(#m1)" stroke-width="2" stroke-linejoin="round"/>
-    ${fish(60, 62, .34, { body: '#5f98a6', belly: '#e3f4f1', fin: '#4d8593', scute: '#ffffff' }, '#a8741c')}
-    ${[[40, 40, 4.5], [50, 30, 2.6], [78, 36, 3.2]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#ffffffcc" stroke="url(#m1)" stroke-width="1.2"/>`).join('')}
-    ${shine('M40,20 C50,13 62,13 70,16 C58,16 48,22 42,30 Z')}
-    ${plate(tr('1歳', 'Age 1'), 'm1', 90, 30)}`,
-  // 2歳：骨板の六角形。よろいの骨板が金色
-  y2: () => `<defs>${metal('m2', 'silver')}${enamel('e2', '#3f78ad', '#1f4470')}</defs>
-    <path d="${SHAPES.y2}" fill="url(#e2)" stroke="url(#m2)" stroke-width="6" stroke-linejoin="round"/>
-    <path d="M60,18 L96,39 L96,81 L60,102 L24,81 L24,39 Z" fill="none" stroke="url(#m2)" stroke-width="1.2" opacity=".7"/>
-    ${fish(60, 56, .62, { body: '#8fc6e4', belly: '#e6f4fb', fin: '#6aa9cc', scute: '#ffd25e' }, '#7d8c94')}
-    ${shine('M24,38 L60,17 L78,27 C60,24 40,32 26,46 Z')}
-    ${plate(tr('2歳', 'Age 2'), 'm2', 84, 30)}`,
-  // 3歳：ハート。オスとメスが向き合う
-  y3: () => `<defs>${metal('m3', 'gold')}${enamel('e3', '#ffc3d7', '#ec6f98')}</defs>
-    <path d="${SHAPES.y3}" fill="url(#e3)" stroke="url(#m3)" stroke-width="6" stroke-linejoin="round"/>
-    ${fish(42, 60, .36, { body: '#8a6fb8', belly: '#efe6fb', fin: '#755aa6', scute: '#fff' }, '#a8741c', -28, true)}
-    ${fish(78, 60, .36, { body: '#4f8fb0', belly: '#e3f3fa', fin: '#3f7c9c', scute: '#fff' }, '#a8741c', 28)}
-    <path d="M60,40 c-2.4,-4 -8,-2 -5.4,2.4 L60,48 L65.4,42.4 c2.6,-4.4 -3,-6.4 -5.4,-2.4 Z" fill="#fff" stroke="url(#m3)" stroke-width="1.2"/>
-    ${shine('M24,38 C30,24 44,22 52,30 C42,28 32,32 26,44 Z')}
-    ${plate(tr('3歳', 'Age 3'), 'm3', 78, 30)}`,
-  // 5歳：水の中。ヒゲで砂の中のえさを探す（波紋）
-  y5: () => `<defs>${metal('m5', 'copper')}${enamel('e5', '#6c5bbf', '#2f2470')}</defs>
-    <path d="${SHAPES.y5}" fill="url(#e5)" stroke="url(#m5)" stroke-width="6"/>
-    <path d="M10,80 C30,74 50,82 70,77 C88,73 100,78 110,80 A54,54 0 0 1 10,80 Z" fill="#e9d4a8" stroke="url(#m5)" stroke-width="1.6"/>
-    ${[6, 11, 16].map(r => `<path d="M27,${64 - r} A${r},${r} 0 0 0 27,${64 + r}" fill="none" stroke="#d6caff" stroke-width="1.8" stroke-linecap="round" opacity="${1.15 - r / 22}"/>`).join('')}
-    ${fish(66, 64, .76, { body: '#9a8fd6', belly: '#efeafd', fin: '#8174c4', scute: '#ffd9a8' }, '#8c4d28', 6)}
-    <circle cx="90" cy="86" r="2.4" fill="#c9ad78"/><circle cx="96" cy="90" r="1.6" fill="#c9ad78"/>
-    ${shine('M22,36 C32,18 52,10 72,12 C52,16 36,26 26,44 Z')}
-    ${plate(tr('5歳', 'Age 5'), 'm5', 96, 30)}`,
-  // 7歳：うちの子の写真（ポラロイド風・少し傾けて画びょうで留める）
-  y7: () => { const ph = photoOf('y7');
-    return `<defs>${metal('m7', 'gold')}<clipPath id="c7"><rect x="24" y="20" width="72" height="66"/></clipPath><linearGradient id="w7" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a9cb4"/><stop offset="1" stop-color="#123f50"/></linearGradient></defs>
-    <g transform="rotate(-4 60 60)">
-      <rect x="16" y="12" width="88" height="100" rx="3" fill="#fffdf6" stroke="#d9d2c0" stroke-width="1"/>
-      <g clip-path="url(#c7)">${ph ? `<image href="${ph}" x="10" y="20" width="100" height="66" preserveAspectRatio="xMidYMid slice"/>` : `<rect x="24" y="20" width="72" height="66" fill="url(#w7)"/>${fish(60, 54, .6, { body: '#4d7d8a', belly: '#d7ebee', fin: '#3f6d79', scute: '#e9f6f8' }, '#1d3a42')}`}</g>
-      <rect x="24" y="20" width="72" height="66" fill="none" stroke="#00000022"/>
-      <text x="60" y="102" font-size="10" font-weight="700" fill="#4a4030" text-anchor="middle">${tr('7歳のきみ', 'you at 7')}</text>
-    </g>
-    <circle cx="60" cy="13" r="5.5" fill="#e2574c" stroke="#9e2f26" stroke-width="1"/><circle cx="58.4" cy="11.4" r="1.6" fill="#fff" opacity=".7"/>`; },
-  // 10歳：本物の写真。金のロゼット＋赤いリボン
-  y10: () => `<defs>${metal('m10', 'gold')}<clipPath id="c10"><circle cx="60" cy="58" r="42"/></clipPath></defs>
-    <path d="M44,92 L36,118 L46,112 L52,119 L58,96 Z" fill="#c8392f"/><path d="M76,92 L84,118 L74,112 L68,119 L62,96 Z" fill="#c8392f"/>
-    <path d="${SHAPES.y10}" fill="url(#m10)" stroke="#a8741c" stroke-width="1"/>
-    <circle cx="60" cy="58" r="45" fill="#7a5410"/>
-    <g clip-path="url(#c10)"><image href="${REAL}" x="14" y="12" width="92" height="92" preserveAspectRatio="xMidYMid slice"/></g>
-    ${shine('M24,44 C30,26 46,16 64,16 C46,22 34,32 28,50 Z')}
-    <path d="M30,90 Q60,100 90,90 L88,104 Q60,113 32,104 Z" fill="#c8392f" stroke="url(#m10)" stroke-width="1.4"/>
-    <text x="60" y="103" font-size="10" font-weight="800" fill="#fff3c4" text-anchor="middle">${tr('10歳', 'Age 10')}</text>`,
-  // マイスター：王冠つきの金メダル
-  master: () => `<defs>${metal('mm', 'gold')}${enamel('em', '#2a5b8c', '#153454')}</defs>
-    <path d="M42,88 L34,118 L44,112 L50,119 L57,92 Z" fill="#c8392f"/><path d="M78,88 L86,118 L76,112 L70,119 L63,92 Z" fill="#2a6fb0"/>
-    <path d="${SHAPES.master}" fill="url(#em)" stroke="url(#mm)" stroke-width="7"/>
-    <path d="M42,20 L43,4 L52,12 L60,1 L68,12 L77,4 L78,20 Q60,15 42,20 Z" fill="url(#mm)" stroke="#a8741c" stroke-width="1.2" stroke-linejoin="round"/>
-    <circle cx="60" cy="8" r="2" fill="#e2574c"/><circle cx="47.5" cy="12" r="1.4" fill="#5fb4e8"/><circle cx="72.5" cy="12" r="1.4" fill="#5fd3a0"/>
-    <circle cx="60" cy="58" r="33" fill="none" stroke="url(#mm)" stroke-width="1.2" stroke-dasharray="1 3" stroke-linecap="round"/>
-    ${fish(60, 56, .5, { body: '#f0c75a', belly: '#fff0b8', fin: '#d9a838', scute: '#fff8dc' }, '#8a5a10')}
-    ${[[38, 38], [84, 42], [80, 76]].map(([x, y]) => `<path d="M${x},${y - 4} l1.2,2.8 l2.8,1.2 l-2.8,1.2 l-1.2,2.8 l-1.2,-2.8 l-2.8,-1.2 l2.8,-1.2 Z" fill="#fff6cf"/>`).join('')}
-    ${shine('M26,50 C30,32 44,22 62,20 C46,26 34,36 30,54 Z')}
-    ${plate(tr('マイスター', 'Meister'), 'mm', 86, 46)}`,
-};
-// バッジ（SVG）。got=false は灰色の形と「？」
+// まるいステッカーのバッジ（SVG）。got=false は灰色のシルエット
+export const setPhotoSource = () => {}; // 写真を使うバッジは今はなし（main.js から呼ばれても何もしない）
 export function badgeSVG(b, got = true, size = 96) {
   const k = b ? b.id : 'master';
-  const inner = got ? ART[k]() : `<path d="${SHAPES[k]}" fill="#3a4c51" stroke="#5a6e74" stroke-width="3" stroke-linejoin="round"/><text x="60" y="70" font-size="30" font-weight="800" fill="#8aa3a9" text-anchor="middle">?</text>${b ? `<text x="60" y="94" font-size="10" font-weight="800" fill="#8aa3a9" text-anchor="middle">${b.when}</text>` : ''}`;
-  return `<svg class="badge-svg" viewBox="0 0 120 120" width="${size}" height="${size}" aria-hidden="true">${inner}</svg>`;
+  const c1 = got ? (b ? b.color : '#ffd76a') : '#5a6e74', c2 = got ? (b ? b.deep : '#b07a10') : '#34474d';
+  const body = got ? '#3b6f7e' : '#24363b', belly = got ? '#cfe6e8' : '#2c3f44';
+  const mark = got ? (b ? b.mark : '👑') : '';
+  const label = b ? b.when : tr('マイスター', 'MEISTER');
+  return `<svg class="badge-svg" viewBox="0 0 120 120" width="${size}" height="${size}" aria-hidden="true">
+  <defs><radialGradient id="bg-${k}-${got ? 1 : 0}" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".35" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></radialGradient></defs>
+  <circle cx="60" cy="60" r="57" fill="#fff" opacity="${got ? 1 : .35}"/>
+  <circle cx="60" cy="60" r="51" fill="url(#bg-${k}-${got ? 1 : 0})"/>
+  <circle cx="60" cy="60" r="45" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.6" stroke-dasharray="3 4"/>
+  <g transform="translate(0,-4)">
+    <path d="M100,50 Q96,60 101,74 L88,64 Z" fill="${body}"/>
+    <path d="M84,50 L90,43 L92,54 Z" fill="${body}"/>
+    <path d="M20,62 Q28,51 48,49 Q72,46 90,56 Q92,61 90,64 Q70,74 46,72 Q28,71 20,62 Z" fill="${body}"/>
+    <path d="M28,66 Q46,73 70,69 Q60,76 44,75 Q32,73 28,66 Z" fill="${belly}"/>
+    <path d="M50,70 L46,80 L58,72 Z" fill="${body}"/>
+    ${[50, 59, 68, 77].map((x, i) => `<path d="M${x},${49 - (i === 0 ? 0 : 0.5)} l3,-3 l3,3 l-3,3 Z" fill="${got ? '#e9f6f8' : '#3d5258'}"/>`).join('')}
+    <path d="M27,66 l-1,7 M31,67 l0,7 M35,68 l1,6" stroke="${body}" stroke-width="1.8" stroke-linecap="round"/>
+    ${got ? `<circle cx="39" cy="58" r="3.6" fill="#10232a"/><circle cx="40.2" cy="56.8" r="1.3" fill="#fff"/><ellipse cx="44" cy="64" rx="3.6" ry="2" fill="#ff8fa8" opacity=".75"/>` : ''}
+  </g>
+  ${mark ? `<text x="88" y="38" font-size="20" text-anchor="middle">${mark}</text>` : `<text x="86" y="40" font-size="22" font-weight="800" fill="#8aa3a9" text-anchor="middle">?</text>`}
+  <path d="M26,90 Q60,100 94,90 L92,104 Q60,112 28,104 Z" fill="${got ? c2 : '#3a4c51'}"/>
+  <text x="60" y="103" font-size="${b ? 11 : 9.5}" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing=".5">${label}</text>
+  ${got ? '<path d="M92,22 l1.6,4 l4,1.6 l-4,1.6 l-1.6,4 l-1.6,-4 l-4,-1.6 l4,-1.6 Z M24,30 l1,2.6 l2.6,1 l-2.6,1 l-1,2.6 l-1,-2.6 l-2.6,-1 l2.6,-1 Z" fill="#fff" opacity=".9"/>' : ''}
+</svg>`;
 }
 
 export function shuffle(arr) {
