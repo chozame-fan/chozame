@@ -5,7 +5,7 @@
 import { tr } from './i18n.js';
 
 export const PASS = 2; // 3問中、これだけ正解で合格
-export const MASTER = tr('スタージョン・マイスター', 'Sturgeon Meister');
+export const MASTER = tr('チョウザメ・マイスター', 'Sturgeon Meister');
 
 // a の1つ目が正解（出す時に並べかえる）
 export const BADGES = [
