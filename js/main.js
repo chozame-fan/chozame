@@ -16,6 +16,8 @@ import { NOTE, noteById, TIPS, MAME } from './note.js';
 import { artBadgeSVG, artURL, makeEditor, validArt, esc, monthKey, monthLabel } from './art.js';
 import { STAMP_N, STAMP_GIFT, GOCHI_AFF, weekNow, MSGS, drawMyCard } from './daily.js';
 import { GENTEI, VOTE, FORM } from './gentei.js';
+import { RALLY, SPOT_CODE, SPOT_AFF, DONE_GOCHI, BACK_GOCHI, spotOf, VERS, seasonOf, drawRally } from './rally.js';
+let decor = null; // スタンプラリーの完成した絵（水槽のかざり）。起動のとちゅうで使うので、ここで宣言
 applyStatic();
 
 const $ = (s) => document.querySelector(s);
@@ -34,6 +36,7 @@ const OFFICIAL_URL = 'https://chozame-fan.github.io/chozame/';
 const UPDATED = '11/15';
 const BETA = tr(`β版・毎日なおしています（${UPDATED} 更新）`, `Beta — improved every day (updated ${UPDATED})`);
 const NEWS = [ // 新しい順。直したら上に足す
+  ['11/15', tr('📅 スタンプ帳の背景は、みんなが送ってくれた絵から、週がわりで出るようになりました', '📅 The stamp card background now rotates weekly through drawings sent in by players')],
   ['11/15', tr('📅 毎日のスタンプ帳（7個で「大好物のごはん」）と、かいた絵のアルバム・マイカード（画像で保存できる）', '📅 A daily stamp card (7 stamps = a favourite treat), plus an album of your drawings and My Cards you can save as images')],
   ['11/15', tr('💕「なかよし」は、自分の手でするお世話（えさ・水かえ・水温・会いに来る）で上がるように。なかよしになるほど、寄ってきたり、ごはんをねだったり、芸を見せたりします（メーターをタップで説明）', '💕 Bond now grows with hands-on care (feeding, water changes, temperature, visiting). The closer you are, the more it swims over, begs for food and even does tricks (tap the meter)')],
   ['11/15', tr('🎨 自分でかいたチョウザメが「じぶんバッジ」に（図鑑の「🏅 バッジ」から）。みんなの絵から毎月1つ、限定バッジもえらびます', '🎨 Draw your own sturgeon and turn it into a badge (Book → 🏅 Badges). Each month one drawing becomes a limited badge for everyone')],
@@ -129,6 +132,7 @@ function applyTank(announce) {
   T = want; S.tank = T.id;
   tank.build(T);
   others.build(T);
+  updateDecor();
   for (const f of foods.splice(0)) scene.remove(f.mesh);
   if (first || !announce) { F.pos.set(0, Math.min(T.h * 0.3, 3), 0); }
   else { F.pos.set(0, T.h * 0.3, 0); toast(tr(`🏠 ${T.name}にお引っ越し！`, `🏠 Moved to the ${T.name}!`)); if (bigger) offerNewFish(S, T); }
@@ -996,6 +1000,10 @@ function start() {
   care('hello');
   starting = false;
   initBadges();
+  if (SPOT_CODE) { // 館内のQRから来た：アドレスから合言葉を消してから、スタンプラリーに足す
+    const q = new URLSearchParams(location.search); q.delete('spot'); history.replaceState(null, '', location.pathname + (q.size ? '?' + q : ''));
+    setTimeout(() => rallyScan(SPOT_CODE), 1500);
+  }
 }
 
 // ---------------- 合言葉 ----------------
@@ -1312,6 +1320,11 @@ function renderBadges(body) {
     grid.appendChild(card);
   }
   renderArtBlocks(body, grid);
+  if (rallyOn()) {
+    const r = rallySt(), card = document.createElement('div'); card.className = 'card badge-card' + (r.done ? '' : ' locked'); card.dataset.art = 'rally';
+    card.innerHTML = `<div class="ph"><img class="rally-badge" src="${drawRally(r.got, 'base', 160, r.done).toDataURL('image/jpeg', .85)}" alt=""></div><div class="ti">${tr('会いに行ったよバッジ', 'I Visited badge')}</div><div class="me">${r.done ? tr(`${dateStr(r.done)} ゲット`, `Got ${dateStr(r.done)}`) : tr(`スタンプラリー ${rallyN()}/${RALLY.spots.length}`, `Stamp rally ${rallyN()}/${RALLY.spots.length}`)}</div>`;
+    grid.appendChild(card);
+  }
   renderAlbum(body);
 }
 
@@ -1389,7 +1402,7 @@ function renderAlbum(body) {
 }
 
 // ---------------- 毎日のスタンプ帳 ----------------
-// 本物の1日に1回おせる。休んでも消えない。7個目で「大好物のごはん」。台紙は今週の1位の絵。
+// 本物の1日に1回おせる。休んでも消えない。7個目で「大好物のごはん」。台紙の背景は、みんなの絵から週がわり。
 const dayKey = () => new Date().toDateString();
 const stampSt = () => (R.stamp ||= { n: 0, last: '', cards: 0 });
 let stampAsked = '';
@@ -1405,7 +1418,7 @@ function showStamp(got) {
   const dots = STAMP_GIFT.map((g, i) => `<div class="st${i < n ? ' on' : ''}${i === n && can ? ' next' : ''}${i === STAMP_N - 1 ? ' last' : ''}"><b>${i < n ? '🐟' : i + 1}</b><span>${g.ic}</span></div>`).join('');
   showDetail(tr('📅 スタンプ帳', '📅 Stamp card'), null, `<div class="stamp-card" style="${w ? `background-image:url(${artURL(w.art, 480)})` : ''}">
       <div class="stamp-grid">${dots}</div>
-      <p class="stamp-bg">${w ? tr(`今週の背景：<b>${esc(w.code)}</b> さんの絵（人気投票の1位）`, `This week's background: drawn by <b>${esc(w.code)}</b> (vote winner)`) : tr('人気投票の1位の絵が、毎週ここの背景になります', "Each week, the top-voted drawing becomes this background")}</p>
+      <p class="stamp-bg">${w ? tr(`今週の背景：<b>${esc(w.code)}</b> さんの絵（みんなの絵から週がわり）`, `This week's background: drawn by <b>${esc(w.code)}</b> (a new player drawing each week)`) : tr('みんなが送ってくれた絵が、毎週かわりばんこで ここの背景になります', "Drawings sent in by players take turns as this background, a new one each week")}</p>
     </div>
     ${got || ''}
     ${can ? `<button class="q-go" data-art="stamp-go">${tr('🐟 ポン！ 今日のスタンプをおす', '🐟 Stamp today')}</button>` : `<p class="mine">${tr(`今日のスタンプはおしたよ。また明日ね！（${n}/${STAMP_N}）`, `Today's stamp is done. See you tomorrow! (${n}/${STAMP_N})`)}</p>`}
@@ -1436,6 +1449,80 @@ function giveGochi() {
   const v = F.pos.clone().project(camera);
   for (let i = 0; i < 6; i++) setTimeout(() => spawnHeart((v.x + 1) / 2 * innerWidth + (Math.random() - 0.5) * 80, (1 - v.y) / 2 * innerHeight - 20, i % 2 ? '🌟' : '💖'), i * 160);
   toast(tr(`🌟 大好物！ ${S.name}が大よろこび（なかよし +${GOCHI_AFF}）`, `🌟 A favourite treat! ${S.name} is thrilled (bond +${GOCHI_AFF})`), true);
+}
+
+// ---------------- 重ねるスタンプラリー（館内のQR・試作） ----------------
+// QR（?spot=合言葉）か、合言葉の手入力で1か所ずつ集める。4つそろうと絵が完成：バッジ・大好物・水槽にかざれる絵。
+// 完成したあと別の日にまた読むと、その季節の色がもらえる（おまけ。1回目だけで完成はする）。
+const rallySt = () => (R.rally ||= { got: {}, vers: {} });
+const rallyOn = () => RALLY.open || !!R.rally;
+const rallyN = () => RALLY.spots.filter(s => R.rally?.got[s.id]).length;
+let rallyVer = 'base';
+const rallyCanvas = (size = 1080) => drawRally(R.rally.got, rallyVer, size, R.rally.vers[rallyVer] || R.rally.done);
+const rallyFile = () => tr(`スタンプラリー_${VERS[rallyVer].name}.jpg`, `stamp-rally-${rallyVer}.jpg`);
+const canvasBlob = (c) => new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.92));
+async function saveCanvas(c, name) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(await canvasBlob(c)); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function shareCanvas(c, name) {
+  const file = new File([await canvasBlob(c)], name, { type: 'image/jpeg' });
+  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], text: `${TAG}\n${OFFICIAL_URL}` }); } catch {} }
+  else { saveCanvas(c, name); toast(tr('この画面では共有できないので、画像を保存しました', 'Sharing isn\'t available here, so the image was saved')); }
+}
+function showRally(note) {
+  const r = rallySt(), all = RALLY.spots.length, k = PARTNERS[RALLY.kan];
+  if (!r.vers[rallyVer]) rallyVer = 'base';
+  const chips = RALLY.spots.map(s => `<div class="rs${r.got[s.id] ? ' on' : ''}"><b>${r.got[s.id] ? s.ic : '？'}</b><span>${r.got[s.id] ? s.name : s.hint}</span></div>`).join('');
+  const vers = Object.keys(VERS).filter(v => r.vers[v]), hung = r.decor && r.dver === rallyVer;
+  showDetail(tr('🗺 重ねるスタンプラリー', '🗺 Layered stamp rally') + (k.confirmed ? '' : tr('（試作）', ' (draft)')), null, `
+    <img class="rally-img" src="${rallyCanvas(720).toDataURL('image/jpeg', .9)}" alt="">
+    ${note || ''}
+    <div class="rally-spots">${chips}</div>
+    ${r.done ? `
+      ${vers.length > 1 ? `<div class="rally-vers">${vers.map(v => `<button data-art="rally-ver" data-v="${v}" class="${v === rallyVer ? 'on' : ''}">${VERS[v].ic} ${VERS[v].name}</button>`).join('')}</div>` : ''}
+      <div class="card-btns"><button data-art="rally-save">${tr('画像を保存', 'Save image')}</button><button data-art="rally-share">${tr('共有する', 'Share')}</button><button data-art="rally-decor">${hung ? tr('🖼 水槽からはずす', '🖼 Take down') : tr('🖼 水槽にかざる', '🖼 Hang in the tank')}</button></div>
+      <p style="font-size:12px;color:var(--sub)">${tr(`別の日にまた館でQRを読むと、その季節の色（春・夏・秋・冬）の絵と「🌟 大好物のごはん」がもらえます。集めた色：${vers.length}/${Object.keys(VERS).length}`, `Scan a QR at the museum on another day to get that season's colours and a 🌟 favourite treat. Colours collected: ${vers.length}/${Object.keys(VERS).length}`)}</p>`
+    : `<p>${tr(`${k.name}の中の${all}か所にあるQRを、スマホのカメラで読んでね。読むたびに1色ずつ絵が重なって、${all}つそろうと1枚の絵になります（${rallyN()}/${all}）。`, `Scan the QR codes at ${all} spots inside the ${k.name}. Each one adds a layer in one colour; collect all ${all} to finish the picture (${rallyN()}/${all}).`)}</p>
+      <p style="font-size:12px;color:var(--sub)">${tr(`そろえると：「会いに行ったよバッジ」・🌟 大好物のごはん×${DONE_GOCHI}・水槽にかざれる絵`, `Finish it for: the "I Visited" badge, ${DONE_GOCHI} 🌟 favourite treats and a picture to hang in your tank`)}</p>`}
+    <div class="rally-code"><input id="rally-code" maxlength="12" autocapitalize="characters" autocomplete="off" placeholder="${tr('QRの下の合言葉', 'Code under the QR')}"><button data-art="rally-code">${tr('入れる', 'Enter')}</button></div>
+    <p style="font-size:12px;color:var(--sub)">${tr('ホーム画面のアプリで遊んでいる人は、QRの下に書いてある合言葉を、ここに入れてね。', 'Playing from your home screen? Type the code printed under the QR here.')}</p>`);
+}
+async function rallyScan(code) {
+  const s = await spotOf(code);
+  if (!s) { toast(tr('この合言葉（QR）は、スタンプラリーの物ではないようです', "That code doesn't belong to the stamp rally")); return; }
+  const r = rallySt(), today = dayKey(), all = RALLY.spots.length;
+  const box = (ic, html) => `<div class="bonus"><span style="font-size:30px">${ic}</span><span>${html}</span></div>`;
+  let note;
+  meet(PARTNERS[RALLY.kan]);
+  if (!r.done) {
+    if (r.got[s.id]) note = box(s.ic, tr(`「${s.name}」は、もう読んだよ。ほかの場所をさがしてね`, `You already have "${s.name}". Look for the other spots`));
+    else {
+      r.got[s.id] = Date.now(); addAff(SPOT_AFF); audio.chime?.();
+      if (rallyN() === all) {
+        r.done = r.vers.base = Date.now(); r.day = today; r.decor = true; r.dver = rallyVer = 'base'; R.gochi = (R.gochi || 0) + DONE_GOCHI;
+        note = box('🎉', tr(`絵が完成！ ごほうび：<b>「会いに行ったよバッジ」</b>・🌟 大好物のごはん×${DONE_GOCHI}・水槽のおくに絵をかざったよ`, `Picture complete! You got the <b>"I Visited" badge</b>, ${DONE_GOCHI} 🌟 favourite treats, and the picture now hangs in your tank`));
+        updateDecor();
+      } else note = box(s.ic, tr(`「${s.name}」が重なった！（${rallyN()}/${all}）なかよし +${SPOT_AFF}`, `"${s.name}" added! (${rallyN()}/${all}) Bond +${SPOT_AFF}`));
+    }
+  } else if (r.day === today) note = box('✅', tr('今日はもう読んだよ。別の日にまた来ると、その季節の色がもらえます', "Already scanned today. Come back another day for that season's colours"));
+  else {
+    const v = seasonOf(), fresh = !r.vers[v];
+    r.day = today; r.back = (r.back || 0) + 1; r.vers[v] ||= Date.now(); rallyVer = v; R.gochi = (R.gochi || 0) + BACK_GOCHI; addAff(SPOT_AFF); audio.chime?.();
+    note = box('🤗', tr(`おかえりなさい！（${r.back + 1}回目）${fresh ? `<b>${VERS[v].name}</b>の絵をもらったよ。` : ''}🌟 大好物のごはん×${BACK_GOCHI}`, `Welcome back! (visit ${r.back + 1}) ${fresh ? `You got the <b>${VERS[v].name}</b> picture. ` : ''}🌟 Favourite treat ×${BACK_GOCHI}`));
+  }
+  save(); $('#zukan').classList.remove('open'); showRally(note);
+}
+// 完成した絵を、水槽のおくに額に入れてかざる（decor は上のほうで宣言）
+function updateDecor() {
+  if (decor) { scene.remove(decor); decor.traverse(o => { o.geometry?.dispose(); o.material?.map?.dispose(); o.material?.dispose(); }); decor = null; }
+  const r = R?.rally; if (!r?.done || !r.decor || !T) return;
+  const s = Math.min(34, Math.max(8, T.w * 0.11)), tex = new THREE.CanvasTexture(drawRally(r.got, r.dver || 'base', 512, r.vers[r.dver] || r.done)); tex.colorSpace = THREE.SRGBColorSpace;
+  decor = new THREE.Group();
+  decor.add(new THREE.Mesh(new THREE.BoxGeometry(s * 1.12, s * 1.12, s * 0.05), new THREE.MeshStandardMaterial({ color: 0x8a5a3b, roughness: 0.8 })));
+  const pic = new THREE.Mesh(new THREE.PlaneGeometry(s, s), new THREE.MeshBasicMaterial({ map: tex })); pic.position.z = s * 0.03; decor.add(pic);
+  decor.position.set(T.w * 0.3, s * 0.6, -T.d / 2 * 0.86); decor.rotation.x = -0.14;
+  scene.add(decor);
 }
 
 function formPost(kind, name, data) {
@@ -1498,6 +1585,12 @@ function wireArt() {
       if (t.dataset.arm) { R.album = R.album.filter(v => v.id !== t.dataset.id); save(); $('#detail').classList.remove('open'); openZukan('badge'); toast(tr('アルバムからけしたよ', 'Removed from the album')); }
       else { t.dataset.arm = 1; t.textContent = tr('もう一回おすと けします（もどせません）', 'Tap again to remove (cannot be undone)'); }
     }
+    else if (a === 'rally') showRally();
+    else if (a === 'rally-code') rallyScan($('#rally-code').value);
+    else if (a === 'rally-ver') { rallyVer = t.dataset.v; showRally(); }
+    else if (a === 'rally-save') saveCanvas(rallyCanvas(), rallyFile());
+    else if (a === 'rally-share') shareCanvas(rallyCanvas(), rallyFile());
+    else if (a === 'rally-decor') { const r = rallySt(); r.decor = !(r.decor && r.dver === rallyVer); r.dver = rallyVer; save(); updateDecor(); showRally(); toast(r.decor ? tr('🖼 水槽のおくに、この絵をかざったよ', '🖼 The picture now hangs at the back of the tank') : tr('絵をはずしたよ', 'Picture removed')); }
     else if (a === 'stamp') showStamp();
     else if (a === 'stamp-go') pressStamp();
     else if (a === 'gochi') giveGochi();
@@ -1730,7 +1823,7 @@ function frame(dt) {
 requestAnimationFrame(loop);
 
 // 確認用
-window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, showLock, licensed, showStoryCard, openQuiz, showMaster, openArt, care, bondLv, doSpin, onTap, showBond, setMode, get F() { return F; }, GENTEI, VOTE, FORM, setDev(d) { S.dev = d; S.age = d; } };
+window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, showLock, licensed, showStoryCard, openQuiz, showMaster, openArt, rallyScan, showRally, updateDecor, get decor() { return decor; }, care, bondLv, doSpin, onTap, showBond, setMode, get F() { return F; }, GENTEI, VOTE, FORM, setDev(d) { S.dev = d; S.age = d; } };
 
 // アプリとして使えるように（ホーム画面に追加・オフライン）
 if ('serviceWorker' in navigator && isSecureContext && !new URLSearchParams(location.search).has('test')) {

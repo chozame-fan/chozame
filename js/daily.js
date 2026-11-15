@@ -1,10 +1,10 @@
 // 毎日のスタンプ帳と、かいた絵のマイカード。
 // スタンプ帳：1日1回（本物の日）スタンプがおせる。休んでも消えず、7個たまるとごほうび「大好物のごはん」。
-//   台紙の背景は「今週の1位の絵」（gentei.js の WEEK）。まだ無い週は、ふつうの海の台紙。
+//   台紙の背景は、みんなが送ってくれた絵（gentei.js の HAIKEI）から週がわりで1枚。まだ無い時は、ふつうの海の台紙。
 // マイカード：かいた絵（アルバム R.album）を、コードネームと魚のひとこと入りのカード画像にする。
 import { tr, EN } from './i18n.js';
 import { drawArt, validArt } from './art.js';
-import { WEEK } from './gentei.js';
+import { HAIKEI } from './gentei.js';
 
 export const STAMP_N = 7;
 // 何個目のスタンプで何がもらえるか（7個目は大好物）
@@ -19,11 +19,14 @@ export const STAMP_GIFT = [
 ];
 export const GOCHI_AFF = 8; // 大好物をあげた時に上がるなかよし（1日の上限とは別）
 
-const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-// 今週の背景：from が今日より前で、いちばん新しい物
+// 今週の背景：絵をでたらめな順にならべて、週ごとに1枚ずつ進む（全部出たら、ならべ直す）。週は月曜に切りかわる
+function rnd(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 export function weekNow(d = new Date()) {
-  const k = ymd(d);
-  return WEEK.filter(w => w.from <= k && validArt(w.art)).sort((a, b) => (a.from < b.from ? 1 : -1))[0] || null;
+  const pool = HAIKEI.filter(w => validArt(w.art)), n = pool.length; if (!n) return null;
+  const wk = Math.floor((Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 864e5) + 3) / 7);
+  const r = rnd(Math.floor(wk / n) * 7919 + n), order = pool.map((_, i) => i);
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  return pool[order[wk % n]];
 }
 
 // ---- マイカード ----
