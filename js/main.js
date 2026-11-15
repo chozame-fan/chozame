@@ -13,7 +13,8 @@ import { tr, EN, LANG, setLang, applyStatic } from './i18n.js';
 import { PARTNERS, VISIT } from './partner.js';
 import { BADGES, badgeById, badgeSVG, MASTER, PASS, shuffle, setPhotoSource } from './quiz.js';
 import { NOTE, noteById, TIPS, MAME } from './note.js';
-import { artBadgeSVG, makeEditor, validArt, esc, monthKey, monthLabel } from './art.js';
+import { artBadgeSVG, artURL, makeEditor, validArt, esc, monthKey, monthLabel } from './art.js';
+import { STAMP_N, STAMP_GIFT, GOCHI_AFF, weekNow, MSGS, drawMyCard } from './daily.js';
 import { GENTEI, VOTE, FORM } from './gentei.js';
 applyStatic();
 
@@ -33,6 +34,7 @@ const OFFICIAL_URL = 'https://chozame-fan.github.io/chozame/';
 const UPDATED = '11/15';
 const BETA = tr(`β版・毎日なおしています（${UPDATED} 更新）`, `Beta — improved every day (updated ${UPDATED})`);
 const NEWS = [ // 新しい順。直したら上に足す
+  ['11/15', tr('📅 毎日のスタンプ帳（7個で「大好物のごはん」）と、かいた絵のアルバム・マイカード（画像で保存できる）', '📅 A daily stamp card (7 stamps = a favourite treat), plus an album of your drawings and My Cards you can save as images')],
   ['11/15', tr('💕「なかよし」は、自分の手でするお世話（えさ・水かえ・水温・会いに来る）で上がるように。なかよしになるほど、寄ってきたり、ごはんをねだったり、芸を見せたりします（メーターをタップで説明）', '💕 Bond now grows with hands-on care (feeding, water changes, temperature, visiting). The closer you are, the more it swims over, begs for food and even does tricks (tap the meter)')],
   ['11/15', tr('🎨 自分でかいたチョウザメが「じぶんバッジ」に（図鑑の「🏅 バッジ」から）。みんなの絵から毎月1つ、限定バッジもえらびます', '🎨 Draw your own sturgeon and turn it into a badge (Book → 🏅 Badges). Each month one drawing becomes a limited badge for everyone')],
   ['11/7', tr('図鑑に「📒 ノート」（チョウザメの読みもの）。節目の前に豆知識が出て、クイズも5問ふえました', 'New "📒 Notes" page in the book. Tips appear before each milestone, and 5 new quiz questions')],
@@ -766,7 +768,9 @@ function buildFoodMenu() {
 }
 function refreshFoodMenu() {
   const L = len();
-  document.querySelectorAll('#food-list .food').forEach((b, i) => {
+  $('#food-list .gochi')?.remove();
+  if (R.gochi) $('#food-list').insertAdjacentHTML('afterbegin', `<button class="food gochi" data-art="gochi"><span class="ic">🌟</span><span>${tr(`大好物のごはん（${R.gochi}こ）`, `Favourite treat (${R.gochi})`)}</span></button>`);
+  document.querySelectorAll('#food-list .food:not(.gochi)').forEach((b, i) => {
     const f = FOODS[i];
     b.classList.toggle('good', S.dev >= 0 && canEat(f, S.dev, L));
   });
@@ -1296,6 +1300,7 @@ function renderBadges(body) {
     ? `<div class="bh-row">${badgeSVG(null, true, 72)}<div><b class="m-title-name sm">${MASTER}</b><br>${tr(`${new Date(R.master).toLocaleDateString('ja-JP')}に称号をもらいました`, `Title earned on ${new Date(R.master).toLocaleDateString('en-US')}`)}</div></div>
        ${S.dev >= 0 && len() >= RELEASE_MIN ? `<button class="story-btn" data-q="ending">${tr(`🌊 ${S.name}を海へ送り出す（エンディング）`, `🌊 Send ${S.name} to the sea (ending)`)}</button>` : ''}`
     : `<p>${tr(`1歳・2歳・3歳・5歳・7歳・10歳の節目に、チョウザメクイズが出ます。${PASS}問正解でバッジ。<br>${BADGES.length}つ全部集めると、称号<b>「${MASTER}」</b>がもらえます（あと${BADGES.length - n}個）。`, `A sturgeon quiz appears at ages 1, 2, 3, 5, 7 and 10. Get ${PASS} right to win a badge.<br>Collect all ${BADGES.length} for the title <b>"${MASTER}"</b> (${BADGES.length - n} to go).`)}</p>`;
+  { const st = stampSt(), b = document.createElement('button'); b.className = 'story-btn'; b.dataset.art = 'stamp'; b.textContent = tr(`📅 スタンプ帳（${st.n >= STAMP_N && st.last !== dayKey() ? 0 : st.n}/${STAMP_N}）${st.last === dayKey() ? '' : '・今日まだ'}`, `📅 Stamp card (${st.n}/${STAMP_N})${st.last === dayKey() ? '' : ' · not yet today'}`); body.appendChild(b); }
   body.appendChild(head);
   const grid = document.createElement('div'); grid.className = 'badge-grid'; body.appendChild(grid);
   for (const b of BADGES) {
@@ -1307,6 +1312,7 @@ function renderBadges(body) {
     grid.appendChild(card);
   }
   renderArtBlocks(body, grid);
+  renderAlbum(body);
 }
 
 // ---------------- おえかき：じぶんバッジ・今月の限定バッジ・人気投票 ----------------
@@ -1317,12 +1323,23 @@ const voteNow = () => (FORM.url && VOTE.month === monthKey() ? VOTE.list.filter(
 const myBadge = (got, size) => artBadgeSVG(R.art?.d, { label: R.art?.name || tr('じぶん', 'Mine'), got, size });
 const gBadge = (g, got, size) => artBadgeSVG(g.art, { label: g.code, mark: '🌟', got, size, ribbon: '#b07a10' });
 const dateStr = (d) => new Date(d).toLocaleDateString(tr('ja-JP', 'en-US'));
-function openArt() {
+// id なし：じぶんバッジの絵をかく／'new'：アルバムに新しくかく／それ以外：アルバムのその絵をかきなおす
+function openArt(id) {
   $('#zukan').classList.remove('open'); $('#detail').classList.remove('open');
   artEd ||= makeEditor($('#art'));
-  artEd.open(R.art?.d, R.art?.name, (d, name) => {
-    R.art = { ...(R.art || {}), d, name, date: Date.now() }; save();
-    toast(R.art.got ? tr('🎨 じぶんバッジの絵をかえたよ', '🎨 Your badge has a new picture') : tr('🎨 かけたね！ 次にクイズに合格すると「じぶんバッジ」になるよ', '🎨 Nice! Pass your next quiz to turn it into your own badge'), true);
+  albumInit();
+  const e = id === 'new' ? null : R.album.find(x => x.id === (id || R.art?.id));
+  const badge = !R.art?.d || (e && e.id === R.art.id); // じぶんバッジの絵も変わるか
+  artEd.open(e?.d, e?.name ?? R.art?.name, (d, name) => {
+    const now = Date.now();
+    if (e) Object.assign(e, { d, name });
+    else R.album.unshift({ id: 'a' + now.toString(36), d, name, date: now, fish: S.name, msg: Math.floor(Math.random() * MSGS.length) });
+    if (R.album.length > ALBUM_MAX) R.album.length = ALBUM_MAX;
+    const cur = e || R.album[0];
+    if (badge) {
+      R.art = { ...(R.art || {}), d, name, date: now, id: cur.id }; save();
+      toast(R.art.got ? tr('🎨 じぶんバッジの絵をかえたよ', '🎨 Your badge has a new picture') : tr('🎨 かけたね！ 次にクイズに合格すると「じぶんバッジ」になるよ', '🎨 Nice! Pass your next quiz to turn it into your own badge'), true);
+    } else { save(); toast(tr('🖼 アルバムにしまったよ', '🖼 Saved to your album'), true); }
     openZukan('badge');
   });
 }
@@ -1334,6 +1351,93 @@ function artBonus() {
   if (g && !R.gentei[g.month]) { R.gentei[g.month] = { date: Date.now() }; h += `<div class="bonus">${gBadge(g, true, 64)}<span>${tr(`🌟 ${monthLabel(g.month)}の限定バッジ（<b>${esc(g.code)}</b>さんの絵）もゲット！`, `🌟 You also got the ${monthLabel(g.month)} limited badge (drawn by <b>${esc(g.code)}</b>)!`)}</span></div>`; }
   return h;
 }
+// ---------------- アルバムとマイカード ----------------
+// かいた絵は R.album に残る（新しい順・このスマホの中だけ）。放流したあとでも、いつでもカードにできる。
+const ALBUM_MAX = 30;
+function albumInit() {
+  R.album ||= [];
+  if (R.art?.d && !R.art.id) { R.art.id = 'a0'; R.album.push({ id: 'a0', d: R.art.d, name: R.art.name, date: R.art.date || Date.now(), fish: S.name, msg: 0 }); }
+}
+let lastMy = null;
+function showMyCard(id) {
+  albumInit();
+  const i = R.album.findIndex(x => x.id === id), e = R.album[i]; if (!e) return;
+  const c = drawMyCard(e, R.album.length - i, { game: GAME, tag: TAG, url: OFFICIAL_URL });
+  lastMy = { c, e };
+  const isBadge = R.art?.id === e.id;
+  showDetail(tr('🐟 マイカード', '🐟 My Card'), null, `<img class="card-img" src="${c.toDataURL('image/jpeg', 0.9)}" alt="${tr('マイカード', 'My Card')}" style="width:100%;display:block;border-radius:12px">
+    <div class="card-btns"><button data-art="card-save">${tr('画像を保存', 'Save image')}</button><button data-art="card-share">${tr('共有する', 'Share')}</button><button data-art="card-msg" data-id="${e.id}">${tr('💬 ひとことを変える', '💬 Change the message')}</button><button data-art="card-edit" data-id="${e.id}">${tr('✏️ かきなおす', '✏️ Redraw')}</button>${isBadge ? '' : `<button data-art="card-badge" data-id="${e.id}">${tr('🏅 じぶんバッジにする', '🏅 Use as my badge')}</button>`}</div>
+    <p style="font-size:12px;color:var(--sub)">${tr('印刷してラミネートすれば、自分だけのカードになります。スマホは画像を長押しでも保存できます。', 'Print and laminate it to make your own card. On phones you can also long-press the image to save it.')}${isBadge ? tr('<br>🏅 この絵は今の「じぶんバッジ」です。', '<br>🏅 This is your current badge picture.') : `<br><button class="link-del" data-art="card-del" data-id="${e.id}">${tr('この絵をアルバムからけす', 'Remove from album')}</button>`}</p>`);
+}
+function myCardBlob() { return new Promise(ok => lastMy.c.toBlob(ok, 'image/jpeg', 0.92)); }
+const myCardFile = () => tr(`マイカード_${lastMy.e.name || 'わたし'}.jpg`, `mycard-${lastMy.e.name || 'me'}.jpg`);
+async function saveMyCard() {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(await myCardBlob()); a.download = myCardFile();
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+async function shareMyCard() {
+  const file = new File([await myCardBlob()], myCardFile(), { type: 'image/jpeg' });
+  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], text: `${TAG}\n${OFFICIAL_URL}` }); } catch {} }
+  else { saveMyCard(); toast(tr('この画面では共有できないので、画像を保存しました', 'Sharing isn\'t available here, so the image was saved')); }
+}
+function renderAlbum(body) {
+  albumInit();
+  const box = document.createElement('div'); box.className = 'src badge-head';
+  box.innerHTML = `<h3>${tr('🖼 アルバム（かいた絵）', '🖼 Album (your drawings)')}</h3><p>${tr('絵をタップすると「マイカード」になります。画像で保存して、印刷もできるよ。', 'Tap a drawing to make it a My Card. Save it as an image, or print it.')}</p>
+    <div class="album">${R.album.map(e => `<button class="al" data-art="card" data-id="${e.id}"><img src="${artURL(e.d, 160)}" alt="">${R.art?.id === e.id ? '<i>🏅</i>' : ''}</button>`).join('')}<button class="al new" data-art="draw-new">${tr('＋<br>新しくかく', '+<br>New')}</button></div>`;
+  body.appendChild(box);
+}
+
+// ---------------- 毎日のスタンプ帳 ----------------
+// 本物の1日に1回おせる。休んでも消えない。7個目で「大好物のごはん」。台紙は今週の1位の絵。
+const dayKey = () => new Date().toDateString();
+const stampSt = () => (R.stamp ||= { n: 0, last: '', cards: 0 });
+let stampAsked = '';
+function maybeStamp() {
+  const st = stampSt(), today = dayKey();
+  if (st.last === today || stampAsked === today || performance.now() < 4000) return;
+  if (quizOpen() || releasing || moviePlaying || !$('#movie-ask').hidden || !$('#release-ask').hidden || !$('#release-done').hidden || !$('#newfish').hidden || !$('#lock').hidden || $('#zukan').classList.contains('open') || $('#detail').classList.contains('open')) return;
+  stampAsked = today; showStamp();
+}
+function showStamp(got) {
+  const st = stampSt(), w = weekNow(), can = st.last !== dayKey();
+  const n = can && st.n >= STAMP_N ? 0 : st.n; // 7個たまった台紙は、次の日に新しくなる
+  const dots = STAMP_GIFT.map((g, i) => `<div class="st${i < n ? ' on' : ''}${i === n && can ? ' next' : ''}${i === STAMP_N - 1 ? ' last' : ''}"><b>${i < n ? '🐟' : i + 1}</b><span>${g.ic}</span></div>`).join('');
+  showDetail(tr('📅 スタンプ帳', '📅 Stamp card'), null, `<div class="stamp-card" style="${w ? `background-image:url(${artURL(w.art, 480)})` : ''}">
+      <div class="stamp-grid">${dots}</div>
+      <p class="stamp-bg">${w ? tr(`今週の背景：<b>${esc(w.code)}</b> さんの絵（人気投票の1位）`, `This week's background: drawn by <b>${esc(w.code)}</b> (vote winner)`) : tr('人気投票の1位の絵が、毎週ここの背景になります', "Each week, the top-voted drawing becomes this background")}</p>
+    </div>
+    ${got || ''}
+    ${can ? `<button class="q-go" data-art="stamp-go">${tr('🐟 ポン！ 今日のスタンプをおす', '🐟 Stamp today')}</button>` : `<p class="mine">${tr(`今日のスタンプはおしたよ。また明日ね！（${n}/${STAMP_N}）`, `Today's stamp is done. See you tomorrow! (${n}/${STAMP_N})`)}</p>`}
+    <p style="font-size:12px;color:var(--sub)">${tr(`1日1回おせます。休んでも消えません。${STAMP_N}個たまると「🌟 大好物のごはん」（あげると、なかよしがぐんと上がる）。${st.cards ? `<br>これまでにうめた台紙：${st.cards}枚` : ''}`, `One stamp a day; missed days don't reset it. ${STAMP_N} stamps = a 🌟 favourite treat (a big bond boost).${st.cards ? `<br>Cards completed: ${st.cards}` : ''}`)}${R.gochi ? tr(`<br>🌟 大好物のごはん：${R.gochi}こ（「🍽 えさ」からあげられます）`, `<br>🌟 Treats: ${R.gochi} (give one from 🍽 Feed)`) : ''}</p>`);
+}
+function addAff(n) {
+  const lv0 = bondLv(); S.aff = Math.min(100, (S.aff || 0) + n); const lv = bondLv();
+  if (lv > lv0) { toast(tr(`💕 ${S.name}と「${BOND[lv].name}」になった！ ${BOND[lv].what}`, `💕 You and ${S.name} are now "${BOND[lv].name}"! ${BOND[lv].what}`), true); audio.chime?.(); }
+}
+function pressStamp() {
+  const st = stampSt(); if (st.last === dayKey()) return;
+  if (st.n >= STAMP_N) st.n = 0;
+  const g = STAMP_GIFT[st.n]; st.n++; st.last = dayKey();
+  let msg = `${g.ic} ${g.t}`;
+  if (g.aff) addAff(g.aff);
+  if (g.gochi) { R.gochi = (R.gochi || 0) + g.gochi; st.cards = (st.cards || 0) + 1; msg = tr('🌟 台紙がうまった！ 「大好物のごはん」をもらったよ（「🍽 えさ」からあげてね）', '🌟 Card complete! You got a favourite treat (give it from 🍽 Feed)'); }
+  else if (!g.aff) { const all = [...MAME, ...Object.values(TIPS).map(t => '📒 ' + t.t)]; msg = all[Math.floor(Math.random() * all.length)]; }
+  save(); audio.chime?.();
+  showStamp(`<div class="bonus"><span style="font-size:30px">${g.ic}</span><span>${tr(`${st.n}個目のスタンプ！`, `Stamp #${st.n}!`)}<br>${msg}</span></div>`);
+}
+// 大好物のごはん：今の大きさで食べられる餌を、きらきら付きで。なかよしが大きく上がる（1日の上限とは別）
+function giveGochi() {
+  if (!R.gochi) return;
+  if (S.dev < 9) { toast(tr('まだ卵黄で育つ時期。大好物は、ごはんを食べられるようになってからね', 'Still on its yolk — save the treat until it can eat')); return; }
+  const f = bestFood(S.dev, len()); if (!f) return;
+  R.gochi--; $('#food-sheet').classList.remove('open');
+  feed(f.id, true); addAff(GOCHI_AFF); save();
+  const v = F.pos.clone().project(camera);
+  for (let i = 0; i < 6; i++) setTimeout(() => spawnHeart((v.x + 1) / 2 * innerWidth + (Math.random() - 0.5) * 80, (1 - v.y) / 2 * innerHeight - 20, i % 2 ? '🌟' : '💖'), i * 160);
+  toast(tr(`🌟 大好物！ ${S.name}が大よろこび（なかよし +${GOCHI_AFF}）`, `🌟 A favourite treat! ${S.name} is thrilled (bond +${GOCHI_AFF})`), true);
+}
+
 function formPost(kind, name, data) {
   R.uid ||= Math.random().toString(36).slice(2, 10);
   const p = new URLSearchParams(), f = FORM.f;
@@ -1383,6 +1487,20 @@ function wireArt() {
     const t = e.target.closest('[data-art]'); if (!t || t.closest('#art')) return;
     const a = t.dataset.art;
     if (a === 'draw') { e.stopPropagation(); openArt(); }
+    else if (a === 'draw-new') { e.stopPropagation(); openArt('new'); }
+    else if (a === 'card') showMyCard(t.dataset.id);
+    else if (a === 'card-save') saveMyCard();
+    else if (a === 'card-share') shareMyCard();
+    else if (a === 'card-msg') { const x = R.album.find(v => v.id === t.dataset.id); x.msg = ((x.msg || 0) + 1) % MSGS.length; save(); showMyCard(x.id); }
+    else if (a === 'card-edit') { e.stopPropagation(); openArt(t.dataset.id); }
+    else if (a === 'card-badge') { const x = R.album.find(v => v.id === t.dataset.id); R.art = { ...(R.art || {}), d: x.d, name: x.name, date: Date.now(), id: x.id }; save(); toast(tr('🏅 この絵を「じぶんバッジ」にしたよ', '🏅 This drawing is now your badge'), true); openZukan('badge'); $('#detail').classList.remove('open'); }
+    else if (a === 'card-del') {
+      if (t.dataset.arm) { R.album = R.album.filter(v => v.id !== t.dataset.id); save(); $('#detail').classList.remove('open'); openZukan('badge'); toast(tr('アルバムからけしたよ', 'Removed from the album')); }
+      else { t.dataset.arm = 1; t.textContent = tr('もう一回おすと けします（もどせません）', 'Tap again to remove (cannot be undone)'); }
+    }
+    else if (a === 'stamp') showStamp();
+    else if (a === 'stamp-go') pressStamp();
+    else if (a === 'gochi') giveGochi();
     else if (a === 'mine') showMyArt();
     else if (a === 'send') askSend();
     else if (a === 'send-go') {
@@ -1600,7 +1718,7 @@ function frame(dt) {
     tank.update(dt, time, camera, camTarget);
     others.update(dt, time, S.dev >= 0 ? F.pos : egg.position, Math.max(len() * 0.6, 1));
     updateCamera(dt);
-    if ((time * 4 | 0) !== ((time - dt) * 4 | 0)) { updateHUD(); renderTabs(); maybeOfferQuiz(); maybeTip(); }
+    if ((time * 4 | 0) !== ((time - dt) * 4 | 0)) { updateHUD(); renderTabs(); maybeStamp(); maybeOfferQuiz(); maybeTip(); }
   }
   renderer.render(scene, camera);
   if (pendingSnaps.length && S) { // 図鑑の写真は描いた直後に撮る
