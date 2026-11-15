@@ -249,6 +249,26 @@
   .badge-card .me { text-align: center; padding: 2px 6px 8px; }
   .badge-card.locked { opacity: .8; }
   .badge-card .me button { margin-top: 4px; padding: 7px; font-size: 13px; }
+  /* おえかき・じぶんバッジ・限定バッジ */
+  #art { z-index: 26; }
+  #art .box { width: min(420px, 100%); }
+  #art-cv { display: block; width: min(100%, 52vh); aspect-ratio: 1; margin: 0 auto 10px; border-radius: 50%; border: 5px solid #fff; box-shadow: 0 4px 14px rgba(0,0,0,.4); touch-action: none; cursor: crosshair; }
+  .art-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .art-row button { flex: 1 1 70px; padding: 8px 4px; font-size: 13px; }
+  .art-row button.on { background: var(--acc); color: #0b2a33; border-color: var(--acc); }
+  .art-row.sw button { flex: 0 0 30px; height: 30px; padding: 0; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); }
+  .art-row.sw button.on { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .art-lab { display: block; font-size: 12px; color: var(--sub); margin-top: 8px; }
+  #art-name { width: 100%; font: inherit; font-size: 16px; background: rgba(255,255,255,.06); color: var(--tx); border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 4px 0 6px; -webkit-user-select: text; user-select: text; }
+  #art-left { min-height: 18px; font-size: 12px; color: #ffc04d; text-align: center; }
+  .bonus { display: flex; align-items: center; gap: 10px; text-align: left; margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: rgba(255, 215, 106, .12); font-size: 14px; line-height: 1.6; }
+  .bonus .badge-svg { margin: 0; flex: none; }
+  .gentei { margin-top: 10px; }
+  .gentei .bh-row { color: var(--tx); }
+  .gentei .badge-grid { margin-bottom: 10px; }
+  .g-past { margin: 8px 0 2px; font-size: 12px; color: var(--sub); }
+  .badge-card.voted { outline: 2px solid var(--acc); }
+  .send-note { font-size: 13px; line-height: 1.8; padding-left: 20px; color: var(--sub); }
   #release-ending { text-align: center; }
   #release-ending .the-end { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; letter-spacing: .3em; color: #ffe7a6; }
   #btn-reset { font-size: 12px; padding: 6px 10px; margin-top: 14px; opacity: .7; }
@@ -373,6 +393,20 @@
 <div id="quiz" class="modal open" hidden><div class="box panel">
   <div class="head"><h2 id="quiz-title"></h2><span id="quiz-step"></span></div>
   <div id="quiz-body"></div>
+</div></div>
+
+<div id="art" class="modal open" hidden><div class="box panel">
+  <div class="head"><h2 data-en="🎨 Draw your sturgeon">🎨 チョウザメをかこう</h2><button data-art="cancel" class="x" data-en="Cancel">やめる</button></div>
+  <canvas id="art-cv" width="512" height="512"></canvas>
+  <div id="art-cols" class="art-row sw"></div>
+  <div class="art-row"><button data-wid="0" data-en="Thin">ほそい</button><button data-wid="1" data-en="Medium">ふつう</button><button data-wid="2" data-en="Thick">ふとい</button><button data-art="eraser" data-en="Eraser">消しゴム</button></div>
+  <div class="art-row"><button data-art="undo" data-en="↩ Undo">↩ 1つもどす</button><button data-art="clear" data-en="🗑 Clear">🗑 ぜんぶけす</button></div>
+  <div class="art-lab" data-en="Badge colour">バッジの色</div>
+  <div id="art-bgs" class="art-row sw"></div>
+  <label class="art-lab" for="art-name" data-en="Code name (up to 8 letters — not your real name)">コードネーム（8文字まで・本名は書かないでね）</label>
+  <input id="art-name" maxlength="8" autocomplete="off">
+  <div id="art-left"></div>
+  <div class="nf-btns"><button class="q-go" data-art="save" data-en="💾 Save">💾 ほぞん</button></div>
 </div></div>
 
 <div id="master" class="modal open" hidden><div class="box panel">

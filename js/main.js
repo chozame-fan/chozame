@@ -13,6 +13,8 @@ import { tr, EN, LANG, setLang, applyStatic } from './i18n.js';
 import { PARTNERS, VISIT } from './partner.js';
 import { BADGES, badgeById, badgeSVG, MASTER, PASS, shuffle, setPhotoSource } from './quiz.js';
 import { NOTE, noteById, TIPS, MAME } from './note.js';
+import { artBadgeSVG, makeEditor, validArt, esc, monthKey, monthLabel } from './art.js';
+import { GENTEI, VOTE, FORM } from './gentei.js';
 applyStatic();
 
 const $ = (s) => document.querySelector(s);
@@ -28,9 +30,10 @@ const LIC_KEY = 'chozame-license';
 const LIC_HASH = ['13f596e36bb99b4ad4f954a6a9488fda0f2bee781ccb84bac6ad397b1c123fbb'];
 // ---------------- ベータ版のお知らせ ----------------
 const OFFICIAL_URL = 'https://chozame-fan.github.io/chozame/';
-const UPDATED = '11/7';
+const UPDATED = '11/15';
 const BETA = tr(`β版・毎日なおしています（${UPDATED} 更新）`, `Beta — improved every day (updated ${UPDATED})`);
 const NEWS = [ // 新しい順。直したら上に足す
+  ['11/15', tr('🎨 自分でかいたチョウザメが「じぶんバッジ」に（図鑑の「🏅 バッジ」から）。みんなの絵から毎月1つ、限定バッジもえらびます', '🎨 Draw your own sturgeon and turn it into a badge (Book → 🏅 Badges). Each month one drawing becomes a limited badge for everyone')],
   ['11/7', tr('図鑑に「📒 ノート」（チョウザメの読みもの）。節目の前に豆知識が出て、クイズも5問ふえました', 'New "📒 Notes" page in the book. Tips appear before each milestone, and 5 new quiz questions')],
   ['11/7', tr(`節目のチョウザメクイズとバッジ。6つ集めると称号「${MASTER}」、そのあと放流のエンディングも選べます`, `Milestone sturgeon quizzes and badges. Collect all 6 for the title "${MASTER}", then choose a release ending`)],
   ['11/3', tr('English に切りかえられるように（図鑑・お知らせ・物語カードも）', 'You can now play in English (book, news and story cards too)')],
@@ -1103,7 +1106,7 @@ function startMovie(trial = false) {
 // バッジは「遊んでいる人」のもの（R.badges）。どの子が節目に着いても、まだ持っていないバッジのクイズが出る
 const badgeCount = () => BADGES.filter(b => R.badges?.[b.id]).length;
 let quizQ = [], quiz = null;
-const quizOpen = () => !$('#quiz').hidden || !$('#master').hidden;
+const quizOpen = () => !$('#quiz').hidden || !$('#master').hidden || !$('#art').hidden;
 // 7歳のバッジは、その節目に着いた子の図鑑の写真を使う
 const reachedPhoto = (id) => { const who = R.reached?.[id]?.name; const st = R.list.find(x => x.name === who && x.zukan[id]?.img) || R.list.find(x => x.zukan[id]?.img); return st ? st.zukan[id].img : null; };
 setPhotoSource((id) => R?.badges?.[id]?.img || (R ? reachedPhoto(id) : null));
@@ -1179,8 +1182,9 @@ function quizResult() {
     R.badges[b.id] ||= { date: Date.now(), name: R.reached?.[b.id]?.name || S.name, score: quiz.ok, img: b.id === 'y7' ? reachedPhoto(b.id) : undefined };
     const done = badgeCount() === BADGES.length && !R.master;
     if (done) R.master = Date.now();
+    const bonus = artBonus();
     save();
-    $('#quiz-body').innerHTML = `<div class="q-intro"><div class="badge-pop">${badgeSVG(b, true, 150)}</div><p class="q-big">${tr(`「${b.name}」をゲット！`, `You got the ${b.name}!`)}</p><p>${tr(`${quiz.qs.length}問中${quiz.ok}問正解。バッジは図鑑の「🏅 バッジ」に入ったよ。`, `${quiz.ok} of ${quiz.qs.length} correct. It's in Book → 🏅 Badges.`)}<br>${done ? '' : tr(`あと${BADGES.length - badgeCount()}個で称号「${MASTER}」！`, `${BADGES.length - badgeCount()} more for the title "${MASTER}"!`)}</p>
+    $('#quiz-body').innerHTML = `<div class="q-intro"><div class="badge-pop">${badgeSVG(b, true, 150)}</div><p class="q-big">${tr(`「${b.name}」をゲット！`, `You got the ${b.name}!`)}</p><p>${tr(`${quiz.qs.length}問中${quiz.ok}問正解。バッジは図鑑の「🏅 バッジ」に入ったよ。`, `${quiz.ok} of ${quiz.qs.length} correct. It's in Book → 🏅 Badges.`)}<br>${done ? '' : tr(`あと${BADGES.length - badgeCount()}個で称号「${MASTER}」！`, `${BADGES.length - badgeCount()} more for the title "${MASTER}"!`)}</p>${bonus}
       <div class="nf-btns"><button class="q-go" data-q="${done ? 'master' : 'close'}">${done ? tr('✨ つづきを見る', '✨ Continue') : tr('やったね！', 'Yay!')}</button></div></div>`;
   } else {
     $('#quiz-body').innerHTML = `<div class="q-intro">${badgeSVG(b, false, 110)}<p class="q-big">${tr(`${quiz.qs.length}問中${quiz.ok}問正解`, `${quiz.ok} of ${quiz.qs.length} correct`)}</p><p>${tr(`あと少し！ ${PASS}問正解でバッジがもらえるよ。<br>解説を思い出して、もう一回やってみよう。`, `So close! You need ${PASS} right.<br>Remember the explanations and try again.`)}</p>
@@ -1221,8 +1225,104 @@ function renderBadges(body) {
     else card.style.cursor = 'default';
     grid.appendChild(card);
   }
+  renderArtBlocks(body, grid);
+}
+
+// ---------------- おえかき：じぶんバッジ・今月の限定バッジ・人気投票 ----------------
+// 絵は R.art（このスマホの中だけ）。「おくる」を押した時だけ、絵とコードネームを Google フォームへ送る。
+let artEd = null;
+const gNow = () => GENTEI.find(g => g.month === monthKey() && validArt(g.art));
+const voteNow = () => (FORM.url && VOTE.month === monthKey() ? VOTE.list.filter(v => validArt(v.art)) : []);
+const myBadge = (got, size) => artBadgeSVG(R.art?.d, { label: R.art?.name || tr('じぶん', 'Mine'), got, size });
+const gBadge = (g, got, size) => artBadgeSVG(g.art, { label: g.code, mark: '🌟', got, size, ribbon: '#b07a10' });
+const dateStr = (d) => new Date(d).toLocaleDateString(tr('ja-JP', 'en-US'));
+function openArt() {
+  $('#zukan').classList.remove('open'); $('#detail').classList.remove('open');
+  artEd ||= makeEditor($('#art'));
+  artEd.open(R.art?.d, R.art?.name, (d, name) => {
+    R.art = { ...(R.art || {}), d, name, date: Date.now() }; save();
+    toast(R.art.got ? tr('🎨 じぶんバッジの絵をかえたよ', '🎨 Your badge has a new picture') : tr('🎨 かけたね！ 次にクイズに合格すると「じぶんバッジ」になるよ', '🎨 Nice! Pass your next quiz to turn it into your own badge'), true);
+    openZukan('badge');
+  });
+}
+// クイズに合格した時のおまけ（じぶんバッジと、その月の限定バッジ）
+function artBonus() {
+  let h = '';
+  if (R.art?.d && !R.art.got) { R.art.got = Date.now(); h += `<div class="bonus">${myBadge(true, 64)}<span>${tr('🎁 おまけ：あなたの絵が<b>「じぶんバッジ」</b>になったよ！', '🎁 Bonus: your drawing became <b>your own badge</b>!')}</span></div>`; }
+  const g = gNow(); R.gentei ||= {};
+  if (g && !R.gentei[g.month]) { R.gentei[g.month] = { date: Date.now() }; h += `<div class="bonus">${gBadge(g, true, 64)}<span>${tr(`🌟 ${monthLabel(g.month)}の限定バッジ（<b>${esc(g.code)}</b>さんの絵）もゲット！`, `🌟 You also got the ${monthLabel(g.month)} limited badge (drawn by <b>${esc(g.code)}</b>)!`)}</span></div>`; }
+  return h;
+}
+function formPost(kind, name, data) {
+  R.uid ||= Math.random().toString(36).slice(2, 10);
+  const p = new URLSearchParams(), f = FORM.f;
+  p.set(f.kind, kind); p.set(f.month, monthKey()); p.set(f.name, name); p.set(f.data, data); p.set(f.uid, R.uid);
+  return fetch(FORM.url, { method: 'POST', mode: 'no-cors', body: p });
+}
+function showMyArt() {
+  const a = R.art, sent = a.sent === monthKey();
+  showDetail(tr('じぶんバッジ', 'My Badge'), null, `<div class="q-intro">${myBadge(true, 150)}</div>
+    <p class="mine">${a.got ? tr(`${dateStr(a.got)} にバッジになりました`, `Became a badge on ${dateStr(a.got)}`) : tr('次にクイズに合格すると、バッジになります（持っているバッジのクイズを、もう一回遊んでもOK）。', 'Pass your next quiz to earn it (replaying a quiz you already passed counts too).')}</p>
+    <div class="card-btns"><button data-art="draw">${tr('✏️ かきなおす', '✏️ Redraw')}</button>${FORM.url ? `<button data-art="send" ${sent ? 'disabled' : ''}>${sent ? tr('📮 今月はもう送ったよ', '📮 Sent this month') : tr('📮 この絵をおくる（限定バッジに応募）', '📮 Send it in (limited badge)')}</button>` : ''}</div>`);
+}
+function askSend() {
+  const a = R.art;
+  if (!a.name) { $('#detail-text').insertAdjacentHTML('beforeend', `<p class="draft">${tr('コードネームがまだないよ。「かきなおす」で入れてから送ってね。', 'Add a code name first (tap Redraw).')}</p>`); return; }
+  showDetail(tr('📮 この絵をおくる', '📮 Send this drawing'), null, `<div class="q-intro">${myBadge(true, 120)}</div>
+    <p>${tr(`この絵と、コードネーム<b>「${esc(a.name)}」</b>だけを、このアプリを作っている人に送ります。<br>えらばれると、その月だけの<b>限定バッジ</b>になって、みんなのアプリに出ます。`, `Only this drawing and the code name <b>"${esc(a.name)}"</b> are sent to the maker of this app.<br>If chosen, it becomes that month's <b>limited badge</b> in everyone's app.`)}</p>
+    <ul class="send-note"><li>${tr('本名・写真・場所などは送りません', 'No real name, photo or location is sent')}</li><li>${tr('送れるのは月に1回。送ったあとは取り消せません', 'Once a month. It cannot be undone after sending')}</li><li>${tr('子どもは、おうちの人といっしょに押してね', 'Kids: please tap this together with a grown-up')}</li></ul>
+    <div class="nf-btns"><button class="q-go" data-art="send-go">${tr('📮 おくる', '📮 Send')}</button><button data-art="mine">${tr('やめる', 'Cancel')}</button></div>`);
+}
+function renderArtBlocks(body, grid) {
+  const a = R.art, card = document.createElement('div'); card.className = 'card badge-card' + (a?.got ? '' : ' locked');
+  card.innerHTML = a?.d
+    ? `<div class="ph">${myBadge(!!a.got, 80)}</div><div class="ti">${tr('じぶんバッジ', 'My Badge')}</div><div class="me">${a.got ? tr(`${dateStr(a.got)} ゲット`, `Got ${dateStr(a.got)}`) : tr('次のクイズ合格でバッジに', 'Pass a quiz to earn it')}</div>`
+    : `<div class="ph">${artBadgeSVG(null, { label: tr('じぶん', 'Mine'), got: false, size: 80 })}</div><div class="ti">${tr('じぶんバッジ', 'My Badge')}</div><div class="me"><button class="q-go" data-art="draw">${tr('🎨 絵をかく', '🎨 Draw')}</button></div>`;
+  if (a?.d) card.onclick = showMyArt; else card.style.cursor = 'default';
+  grid.appendChild(card);
+
+  const g = gNow(), got = g && R.gentei?.[g.month];
+  const past = GENTEI.filter(x => x !== g && R.gentei?.[x.month] && validArt(x.art));
+  const box = document.createElement('div'); box.className = 'src badge-head gentei';
+  box.innerHTML = `<h3>${tr('🌟 今月の限定バッジ', "🌟 This month's limited badge")}</h3>` + (g
+    ? `<div class="bh-row">${gBadge(g, !!got, 84)}<div>${tr(`${monthLabel(g.month)}は <b>${esc(g.code)}</b> さんの絵。`, `${monthLabel(g.month)}: drawn by <b>${esc(g.code)}</b>.`)}<br>${got ? tr(`${dateStr(got.date)} ゲット！`, `Got ${dateStr(got.date)}!`) : tr('今月のうちにクイズに合格するともらえます（持っているバッジのクイズを、もう一回でもOK）。', 'Pass any quiz this month to get it (replays count).')}</div></div>`
+    : `<p>${tr('みんながかいたチョウザメの絵から、毎月1つが<b>その月だけの限定バッジ</b>になります。', 'Each month, one sturgeon drawing from players becomes a <b>limited badge for that month only</b>.')}${FORM.url ? tr('<br>「じぶんバッジ」の絵を「📮 おくる」と応募できるよ。', '<br>Send in your own badge drawing to enter.') : ''}</p>`)
+    + (past.length ? `<p class="g-past">${tr('これまでに集めた限定バッジ', 'Limited badges you collected')}</p><div class="m-row">${past.map(x => gBadge(x, true, 56)).join('')}</div>` : '');
+  body.appendChild(box);
+
+  const vs = voteNow(); if (!vs.length) return;
+  const mine = R.voted?.[VOTE.month];
+  const vb = document.createElement('div'); vb.className = 'src badge-head gentei';
+  vb.innerHTML = `<h3>${tr(`🗳 ${monthLabel(VOTE.month)}の人気投票`, `🗳 ${monthLabel(VOTE.month)} vote`)}</h3><p>${mine != null ? tr('投票ありがとう！ 1位の絵が、来月の限定バッジになります。', 'Thanks for voting! The winner becomes next month\'s limited badge.') : tr('いちばん好きな絵を1つえらんでね（1人1回）。1位の絵が、来月の限定バッジになります。', 'Pick your favourite (one vote each). The winner becomes next month\'s limited badge.')}</p>
+    <div class="badge-grid">${VOTE.list.map((v, i) => !validArt(v.art) ? '' : `<div class="card badge-card${mine === i ? ' voted' : ''}" ${mine == null ? `data-art="vote" data-n="${i}"` : 'style="cursor:default"'}><div class="ph">${artBadgeSVG(v.art, { label: v.code, mark: '', size: 80, ribbon: '#3b6f7e' })}</div><div class="ti">${mine === i ? '✅ ' : ''}${esc(v.code)}</div></div>`).join('')}</div>`;
+  body.appendChild(vb);
+}
+function wireArt() {
+  document.body.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-art]'); if (!t || t.closest('#art')) return;
+    const a = t.dataset.art;
+    if (a === 'draw') { e.stopPropagation(); openArt(); }
+    else if (a === 'mine') showMyArt();
+    else if (a === 'send') askSend();
+    else if (a === 'send-go') {
+      t.disabled = true;
+      formPost('e', R.art.name, R.art.d).then(() => { R.art.sent = monthKey(); save(); $('#detail').classList.remove('open'); toast(tr('📮 送ったよ！ えらばれたら、お知らせと限定バッジに出ます', '📮 Sent! If chosen, it will appear as a limited badge'), true); })
+        .catch(() => { t.disabled = false; toast(tr('送れませんでした。ネットにつながっているか見て、もう一回ためしてね', 'Could not send. Check your connection and try again')); });
+    }
+    else if (a === 'vote') {
+      const i = +t.dataset.n, v = VOTE.list[i];
+      showDetail(tr('🗳 この絵に投票する？', '🗳 Vote for this one?'), null, `<div class="q-intro">${artBadgeSVG(v.art, { label: v.code, mark: '', size: 170, ribbon: '#3b6f7e' })}</div><div class="nf-btns"><button class="q-go" data-art="vote-go" data-n="${i}">${tr('🗳 投票する', '🗳 Vote')}</button><button data-art="back">${tr('ほかのも見る', 'See others')}</button></div>`);
+    }
+    else if (a === 'back') $('#detail').classList.remove('open');
+    else if (a === 'vote-go') {
+      const i = +t.dataset.n; t.disabled = true;
+      formPost('v', String(i + 1), VOTE.list[i].code).then(() => { (R.voted ||= {})[VOTE.month] = i; save(); $('#detail').classList.remove('open'); openZukan('badge'); toast(tr('🗳 投票したよ。ありがとう！', '🗳 Voted. Thank you!'), true); })
+        .catch(() => { t.disabled = false; toast(tr('送れませんでした。ネットにつながっているか見て、もう一回ためしてね', 'Could not send. Check your connection and try again')); });
+    }
+  });
 }
 function wireQuiz() {
+  wireArt();
   document.body.addEventListener('click', (e) => {
     const t = e.target.closest('[data-q]'); if (!t) return;
     const a = t.dataset.q;
@@ -1431,7 +1531,7 @@ function frame(dt) {
 requestAnimationFrame(loop);
 
 // 確認用
-window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, showLock, licensed, showStoryCard, openQuiz, showMaster, setDev(d) { S.dev = d; S.age = d; } };
+window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, showLock, licensed, showStoryCard, openQuiz, showMaster, openArt, GENTEI, VOTE, FORM, setDev(d) { S.dev = d; S.age = d; } };
 
 // アプリとして使えるように（ホーム画面に追加・オフライン）
 if ('serviceWorker' in navigator && isSecureContext && !new URLSearchParams(location.search).has('test')) {
