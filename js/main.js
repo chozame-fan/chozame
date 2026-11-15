@@ -33,6 +33,7 @@ const OFFICIAL_URL = 'https://chozame-fan.github.io/chozame/';
 const UPDATED = '11/15';
 const BETA = tr(`β版・毎日なおしています（${UPDATED} 更新）`, `Beta — improved every day (updated ${UPDATED})`);
 const NEWS = [ // 新しい順。直したら上に足す
+  ['11/15', tr('💕「なかよし」は、自分の手でするお世話（えさ・水かえ・水温・会いに来る）で上がるように。なかよしになるほど、寄ってきたり、ごはんをねだったり、芸を見せたりします（メーターをタップで説明）', '💕 Bond now grows with hands-on care (feeding, water changes, temperature, visiting). The closer you are, the more it swims over, begs for food and even does tricks (tap the meter)')],
   ['11/15', tr('🎨 自分でかいたチョウザメが「じぶんバッジ」に（図鑑の「🏅 バッジ」から）。みんなの絵から毎月1つ、限定バッジもえらびます', '🎨 Draw your own sturgeon and turn it into a badge (Book → 🏅 Badges). Each month one drawing becomes a limited badge for everyone')],
   ['11/7', tr('図鑑に「📒 ノート」（チョウザメの読みもの）。節目の前に豆知識が出て、クイズも5問ふえました', 'New "📒 Notes" page in the book. Tips appear before each milestone, and 5 new quiz questions')],
   ['11/7', tr(`節目のチョウザメクイズとバッジ。6つ集めると称号「${MASTER}」、そのあと放流のエンディングも選べます`, `Milestone sturgeon quizzes and badges. Collect all 6 for the title "${MASTER}", then choose a release ending`)],
@@ -163,6 +164,7 @@ const MODES = {
   cruise: { v: 0.45, t: [5, 10], amp: 1 },
   burst: { v: 1.9, t: [1, 2.2], amp: 1.8 },
   lookup: { v: 0.35, t: [3, 4.5], amp: 0.9 },
+  come: { v: 0.3, t: [3.5, 6], amp: 0.8 }, // なかよしの子が、こっちに寄ってくる
 };
 function setMode(m) {
   const L = len(), b = bounds();
@@ -171,7 +173,8 @@ function setMode(m) {
     F.target.set((Math.random() * 2 - 1) * b.x, b.y0 + Math.random() * Math.min(T.h * 0.4, L), (Math.random() * 2 - 1) * b.z);
   } else if (m === 'lookup') { // 水面に向かって顔を上げる
     F.target.set(clamp(F.pos.x + Math.cos(F.yaw) * L * 0.8, -b.x, b.x), b.y1, clamp(F.pos.z - Math.sin(F.yaw) * L * 0.8, -b.z, b.z));
-  } else pickWander();
+  } else if (m === 'come') comeTarget();
+  else pickWander();
   if (m === 'rest') F.target.y = b.y0;
 }
 function nextMode() {
@@ -181,12 +184,21 @@ function nextMode() {
   // 元気な子はよく急に泳ぎ、のんびりな子はよく休む。好奇心が強い子はよく水面を見上げる
   const pRest = 0.3 / act, pBurst = 0.14 * act, pLook = 0.14 * cur;
   const pCruise = Math.max(0.1, 1 - pRest - pBurst - pLook);
+  // なかよしだと、ときどき自分から寄ってくる。だいすきの子は、おなかがすくとよく寄ってきてねだる
+  const lv = bondLv(), pCome = begging() ? 0.7 : lv >= 3 ? 0.25 : lv >= 2 ? 0.16 : 0;
+  if (Math.random() < pCome) { setMode('come'); return; }
   const x = r * (pRest + pCruise + pBurst + pLook);
   setMode(x < pRest ? 'rest' : x < pRest + pCruise ? 'cruise' : x < pRest + pCruise + pBurst ? 'burst' : canLook ? 'lookup' : 'cruise');
   // ときどきくるっと体をひねって、お腹や背中を見せる
   if (Math.random() < 0.3 && F.mode !== 'rest') { F.rollTarget = (Math.random() < 0.5 ? -1 : 1) * (0.9 + Math.random() * 0.6); F.rollT = 1.2 + Math.random(); }
 }
 
+// こっち（カメラ）の方へ少し泳いで、水の中ほどで止まる。着いたらこっちを向く
+function comeTarget() {
+  const b = bounds(), L = len();
+  const dx = camera.position.x - F.pos.x, dz = camera.position.z - F.pos.z, d = Math.hypot(dx, dz) || 1, k = Math.min(L * 2.2, d * 0.55) / d;
+  F.target.set(clamp(F.pos.x + dx * k, -b.x * 0.8, b.x * 0.8), b.y0 + (b.y1 - b.y0) * 0.55, clamp(F.pos.z + dz * k, -b.z * 0.8, b.z * 0.8));
+}
 function updateFish(dt) {
   const L = len();
   if (F.freeze) { fish.setSwim(F.phase, 0.015, 0, 0); fish.setMouth(F.mouth || 0); fish.setExpr(F.snout || 0, F.snoutZ || 0, F.barbX || 0, F.barbZ || 0); fish.group.position.copy(F.pos); fish.group.rotation.set(F.roll || 0, F.yaw, F.pitch); fish.group.scale.setScalar(L); return; }
@@ -208,12 +220,13 @@ function updateFish(dt) {
   if (food) F.target.copy(food.mesh.position).add(new THREE.Vector3(0, L * 0.05, 0));
   else if (!yolkStage) {
     F.modeT -= dt;
-    if (F.modeT <= 0 || (F.mode !== 'lookup' && F.pos.distanceTo(F.target) < L * 0.6 + 0.3)) {
+    if (F.modeT <= 0 || (F.mode !== 'lookup' && F.mode !== 'come' && F.pos.distanceTo(F.target) < L * 0.6 + 0.3)) {
       if (F.modeT <= 0) nextMode(); else if (F.mode === 'burst') setMode('cruise'); else pickWander();
     }
   } else { F.wanderT -= dt; if (F.wanderT <= 0 || F.pos.distanceTo(F.target) < L * 0.8 + 0.3) pickWander(); }
 
-  const to = F.target.clone().sub(F.pos);
+  const arrived = !food && F.mode === 'come' && F.pos.distanceTo(F.target) < L * 0.45 + 0.5;
+  const to = (arrived ? camera.position : F.target).clone().sub(F.pos);
   const horiz = Math.hypot(to.x, to.z);
   const wantYaw = Math.atan2(-to.z, to.x);
   let dy = wantYaw - F.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
@@ -237,26 +250,39 @@ function updateFish(dt) {
   else vWant = Math.min(L * MODES[F.mode].v * (0.85 + 0.3 * Math.sin(now * 0.7 + 1)), F.mode === 'burst' ? 140 : 50);
   if (weak) vWant *= 0.4;
   if (pet.t > 0) vWant *= 0.15; // なでられている間は、じっとしている
+  const near = arrived;
+  if (near) vWant = Math.min(vWant, L * 0.08); // 目の前まで来たら、こっちを見たまま止まる
   vWant = Math.max(vWant, 0.15);
   F.speed += (vWant - F.speed) * Math.min(1, dt * (burst ? 2.5 : 0.9));
   const fw = new THREE.Vector3(Math.cos(F.yaw) * Math.cos(F.pitch), Math.sin(F.pitch), -Math.sin(F.yaw) * Math.cos(F.pitch));
   F.pos.addScaledVector(fw, F.speed * dt);
   const ox = F.pos.x, oz = F.pos.z;
   F.pos.x = clamp(F.pos.x, -b.x, b.x); F.pos.z = clamp(F.pos.z, -b.z, b.z); F.pos.y = clamp(F.pos.y, b.y0, b.y1);
-  if (ox !== F.pos.x || oz !== F.pos.z) { if (F.mode === 'burst') setMode('cruise'); else pickWander(); }
+  if (ox !== F.pos.x || oz !== F.pos.z) { if (F.mode === 'burst') setMode('cruise'); else if (F.mode !== 'come') pickWander(); }
 
   // 体のひねり：曲がる時に少し傾く＋ときどき大きくひねる
   F.rollT = (F.rollT || 0) - dt;
   const rollWant = (F.rollT > 0 ? F.rollTarget : 0) + clamp(-yawRate * 0.25, -0.5, 0.5);
   pet.t = Math.max(0, pet.t - dt);
-  const happy = pet.t > 0 ? Math.min(1, pet.t) : 0;
-  F.roll = (F.roll || 0) + (rollWant + happy * 0.35 * Math.sin(now * 4) - (F.roll || 0)) * Math.min(1, dt * 2.5); // うれしくて体をゆらす
+  const close = !food && F.mode === 'come' ? 1 : 0;
+  const happy = pet.t > 0 ? Math.min(1, pet.t) : close * 0.7;
+  if ((F.spinT || 0) > 0) { // 芸：くるっと一回転
+    F.spinT -= dt; F.roll = (F.roll || 0) + dt * Math.PI * 2 / 0.9;
+    if (F.spinT <= 0) F.roll = Math.atan2(Math.sin(F.roll), Math.cos(F.roll));
+  } else F.roll = (F.roll || 0) + (rollWant + happy * 0.35 * Math.sin(now * 4) - (F.roll || 0)) * Math.min(1, dt * 2.5); // うれしくて体をゆらす
+  // 寄ってきた時は、ときどきハート。しんゆうの子は、たまに自分から芸を見せる
+  if (close && !yolkStage) {
+    F.heartT = (F.heartT ?? 1) - dt;
+    if (F.heartT < 0) { F.heartT = 1.4 + Math.random(); const v = F.pos.clone().project(camera); if (Math.abs(v.x) < 1 && Math.abs(v.y) < 1 && v.z < 1) spawnHeart((v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight - 30, begging() ? '🍚' : null); }
+    if (bondLv() >= 4 && near && !F.spun && Math.random() < dt * 0.25) { F.spun = 1; doSpin(); }
+  } else F.spun = 0;
 
   const rel0 = F.speed / L;
   // 口パク：餌が近い・水面を見上げている時はパクパク、食べた直後はモグモグ
   let mouthWant = 0;
   if (food && best < L * 0.9) mouthWant = 0.5 + 0.5 * Math.sin(now * 5.5);
   if (!food && F.mode === 'lookup' && F.pos.y > b.y1 - L * 0.8) mouthWant = 0.5 + 0.5 * Math.sin(now * 4.5);
+  if (close && begging()) mouthWant = 0.5 + 0.5 * Math.sin(now * 6); // ごはんちょうだい
   if (F.eatT > 0) mouthWant = 0.5 - 0.5 * Math.cos((1.8 - F.eatT) * 7);
   if (yolkStage || S.dev < 12) mouthWant = 0;
   F.mouth = (F.mouth || 0) + (Math.max(0, mouthWant) - (F.mouth || 0)) * Math.min(1, dt * 7);
@@ -279,6 +305,7 @@ function updateFish(dt) {
   if (F.bigT < 0) { F.bigT = (5 + Math.random() * 6) / (S.traits?.curious ?? 1); F.bigHold = 0.8 + Math.random() * 0.9; }
   if ((F.bigHold || 0) > 0) { F.bigHold -= dt; snoutWant = Math.max(snoutWant, 1.6 + 0.2 * Math.sin(now * 3)); }
   if (happy) snoutWant = Math.max(snoutWant, 0.5 + 0.3 * Math.sin(now * 5)); // 鼻を上げてごきげん
+  if (close) snoutWant = Math.max(snoutWant, 0.75 + 0.25 * Math.sin(now * 3.5)); // こっちを見上げる
   F.snout = (F.snout || 0) + (snoutWant - (F.snout || 0)) * Math.min(1, dt * 4);
   // ヒクヒク：鼻先を小刻みに速く動かす。3〜6回続けて少し休む。餌が近い時はもっとよくヒクヒクする
   F.sniffT = (F.sniffT ?? 1) - dt;
@@ -333,6 +360,7 @@ function feed(id, quiet) {
       else toast(tr(`体が大きくなって、${f.name}では小さすぎて見向きもしない`, `Too big now — ${f.name.toLowerCase()} are too small to bother with`));
     }
   }
+  if (!quiet && ok && S.satiety < 70) care('food'); // おなかがすいた時に、自分の手であげた
   const n = Math.max(3, Math.round(f.count * (L > 60 ? 0.6 : 1)));
   const spread = Math.max(L * 0.9, 1.5);
   for (let i = 0; i < n; i++) {
@@ -417,7 +445,6 @@ function sim(gdt, bg = false) {
     if (feeding && S.satiety <= 0) dh = -25;
     if (S.water < 35) dh = Math.min(dh, -(35 - S.water) * 0.8);
     if (S.temp > 26 || S.temp < 6) dh = -30;
-    S.aff = Math.max(0, (S.aff || 0) - gdt * 1.5);
     if (dh > 0) dh *= 1 + (S.aff || 0) / 100; // なかよしだと元気が回復しやすい
     S.health += gdt * dh;
     // 自動給餌
@@ -506,7 +533,8 @@ const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 {
   let drag = null; const pts = new Map(); let pinch0 = 0, zoom0 = 1;
   const el = renderer.domElement;
-  el.addEventListener('pointerdown', (e) => { pts.set(e.pointerId, [e.clientX, e.clientY]); drag = [e.clientX, e.clientY];
+  let tap0 = null;
+  el.addEventListener('pointerdown', (e) => { pts.set(e.pointerId, [e.clientX, e.clientY]); drag = [e.clientX, e.clientY]; tap0 = pts.size === 1 ? [e.clientX, e.clientY, performance.now(), hitFish(e.clientX, e.clientY)] : null;
     if (pts.size === 1 && hitFish(e.clientX, e.clientY)) { pet.on = true; pet.last = [e.clientX, e.clientY]; drag = null; } try { el.setPointerCapture(e.pointerId); } catch {} if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); zoom0 = cam.zoom; } });
   el.addEventListener('pointermove', (e) => {
     if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
@@ -515,12 +543,14 @@ const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
     if (!drag) return;
     cam.az -= (e.clientX - drag[0]) * 0.006; cam.el = clamp(cam.el + (e.clientY - drag[1]) * 0.005, -0.7, 1.45); drag = [e.clientX, e.clientY]; cam.lastTouch = performance.now() / 1000;
   });
-  const up = (e) => { pts.delete(e.pointerId); if (!pts.size) { drag = null; pet.on = false; } };
+  const up = (e) => {
+    if (tap0 && e.type === 'pointerup' && Math.hypot(e.clientX - tap0[0], e.clientY - tap0[1]) < 10 && performance.now() - tap0[2] < 400) onTap(tap0[3]);
+    tap0 = null; pts.delete(e.pointerId); if (!pts.size) { drag = null; pet.on = false; } };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   el.addEventListener('wheel', (e) => { e.preventDefault(); cam.zoom = clamp(cam.zoom * Math.exp(e.deltaY * 0.001), 0.35, 5); }, { passive: false });
 }
 // ---------------- なでる ----------------
-const pet = { on: false, last: null, dist: 0, heartDist: 0, t: 0, todayGain: 0, day: -1 };
+const pet = { on: false, last: null, dist: 0, heartDist: 0, t: 0 };
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 function hitFish(x, y) {
   if (!S || S.dev < 0 || releasing || !fish.group.visible) return false;
@@ -535,23 +565,71 @@ function petMove(x, y) {
   if (!hitFish(x, y)) return; // 魚からはずれたら、なでていない
   pet.t = 1.6; pet.dist += d; pet.heartDist += d;
   if (pet.heartDist > 55) { pet.heartDist = 0; spawnHeart(x, y); audio.chime?.(); }
-  // なでた分だけ、なかよし度と元気が上がる（1日に上がる量には上限）
-  const day = Math.floor(S.age);
-  if (day !== pet.day) { pet.day = day; pet.todayGain = 0; }
+  // なでると元気が上がる。なかよしは少しだけ（なかよしは、ふだんのお世話で上がる）
   if (pet.dist > 120) {
     pet.dist = 0;
-    if (pet.todayGain < 12) { pet.todayGain += 1; S.aff = Math.min(100, (S.aff || 0) + 1); }
+    care('pet');
     S.health = Math.min(100, S.health + 1.5);
     if (Math.random() < 0.08) toast(EN ? ['😊 ' + S.name + ' looks happy!', '💕 That feels nice', '✨ ' + S.name + ' perked up'][Math.floor(Math.random() * 3)] : ['😊 ' + S.name + 'が、うれしそう！', '💕 なでなで、気持ちいいね', '✨ ' + S.name + 'が元気になった'][Math.floor(Math.random() * 3)]);
   }
 }
-function spawnHeart(x, y) {
+function spawnHeart(x, y, ch) {
   const h = document.createElement('div'); h.className = 'heart';
-  h.textContent = ['💗', '💕', '💖', '❤️'][Math.floor(Math.random() * 4)];
+  h.textContent = ch || ['💗', '💕', '💖', '❤️'][Math.floor(Math.random() * 4)];
   h.style.left = `${x + (Math.random() - 0.5) * 30}px`; h.style.top = `${y - 10}px`;
   h.style.setProperty('--dx', `${(Math.random() - 0.5) * 60}px`);
   document.body.appendChild(h);
   setTimeout(() => h.remove(), 1300);
+}
+
+// ---------------- なかよし（お世話の積み重ね） ----------------
+// 自分の手でしたお世話の分だけ上がる。本物の時間で数えるので、早送りしても上がり方は同じ。おまかせ給餌では上がらない。
+// 成長には関係しない（お世話をしなくても、クイズの節目を通って育つ）。なかよしになるほど、ふるまいが変わる。
+const BOND = [
+  { at: 0, name: tr('はじめまして', 'Just met'), what: tr('まだ少し人見知り。ふつうに泳いでいる', 'Still a little shy. Just swims around') },
+  { at: 15, name: tr('なれてきた', 'Getting used to you'), what: tr('水をトンとたたくと、こっちを向いて寄ってくる', 'Tap the water and it turns and swims to you') },
+  { at: 35, name: tr('なついてる', 'Attached'), what: tr('ときどき自分から寄ってきて「かまって〜」。ハートが出る', 'Sometimes swims over on its own, wanting attention') },
+  { at: 60, name: tr('だいすき', 'Loves you'), what: tr('おなかがすくと寄ってきて、口をパクパク「ごはんちょうだい」', 'When hungry it swims over and begs, mouth flapping') },
+  { at: 85, name: tr('しんゆう', 'Best friends'), what: tr('タップすると、くるっと一回転の芸を見せてくれる', 'Tap it and it shows you a spin trick') },
+];
+const CARE = { // [上がる量, 次に上がるまでの秒]
+  food: [2, 60], water: [2, 90], temp: [3, 120], pet: [1, 45], hello: [3, 0],
+};
+const CARE_DAY = 20; // 1日に上がるのはここまで
+const bondLv = (a = S?.aff || 0) => BOND.reduce((n, b, i) => (a >= b.at ? i : n), 0);
+const begging = () => bondLv() >= 3 && S.dev >= 12 && S.satiety < 50;
+function care(kind) {
+  if (!S || (kind === 'pet' && S.dev < 0)) return;
+  const c = (S.care ||= { t: {}, day: '', got: 0 }), now = Date.now(), today = new Date().toDateString();
+  if (c.day !== today) { c.day = today; c.got = 0; }
+  if (kind === 'hello') { // 会いに来た（本物の1日に1回）。何日もあいていたら少しさみしがる
+    if (c.hello === today) return;
+    const away = c.seen ? Math.floor((now - c.seen) / 864e5) : 0;
+    if (away >= 3) S.aff = Math.max(0, (S.aff || 0) - Math.min(20, (away - 2) * 3));
+    c.hello = today;
+  } else if (now - (c.t[kind] || 0) < CARE[kind][1] * 1000) return;
+  c.t[kind] = now; c.seen = now;
+  const add = Math.min(CARE[kind][0], CARE_DAY - c.got); if (add <= 0) return;
+  const lv0 = bondLv(); c.got += add; S.aff = Math.min(100, (S.aff || 0) + add); const lv = bondLv();
+  if (lv > lv0) { toast(tr(`💕 ${S.name}と「${BOND[lv].name}」になった！ ${BOND[lv].what}`, `💕 You and ${S.name} are now "${BOND[lv].name}"! ${BOND[lv].what}`), true); audio.chime?.(); save(); }
+}
+function doSpin() { if ((F.spinT || 0) > 0 || S.dev < 12) return; F.spinT = 0.9; const v = F.pos.clone().project(camera); for (let i = 0; i < 3; i++) setTimeout(() => spawnHeart((v.x + 1) / 2 * innerWidth + (i - 1) * 24, (1 - v.y) / 2 * innerHeight - 20, '✨'), i * 150); }
+// 水をトンとたたく・魚をタップした時
+function onTap(onFish) {
+  if (!S || S.dev < 9 || releasing) return;
+  const lv = bondLv();
+  if (onFish && lv >= 4) { doSpin(); return; }
+  if (lv >= 1 && performance.now() - (F.calledAt || -9e3) > 3000) { F.calledAt = performance.now(); setMode('come'); }
+}
+function showBond() {
+  const a = Math.round(S.aff || 0), lv = bondLv(), c = S.care || {};
+  showDetail(tr(`💕 ${S.name}との なかよし`, `💕 Your bond with ${S.name}`), null, `<p class="q-big" style="text-align:center">${'♥'.repeat(lv) || '♡'} ${BOND[lv].name}（${a}）</p>
+    <p>${tr('お世話をしなくても、クイズの節目を通ってちゃんと育ちます。でも、自分の手でコツコツお世話をすると「なかよし」が上がって、ふるまいが変わっていきます。', 'It grows up fine without care, through the milestone quizzes. But steady hands-on care raises your bond, and its behaviour changes.')}</p>
+    <h3>${tr('なかよしが上がるお世話', 'Care that builds your bond')}</h3>
+    <ul class="send-note"><li>${tr('おなかがすいた時に、自分でえさをあげる（おまかせ給餌では上がらない）', 'Feed it yourself when it is hungry (auto-feed does not count)')}</li><li>${tr('水がにごってきたら、水かえ', 'Change the water when it gets cloudy')}</li><li>${tr('水温がずれていたら、ちょうどよく合わせる', 'Fix the water temperature when it drifts')}</li><li>${tr('毎日会いに来る', 'Come and see it every day')}</li><li>${tr('なでる（少しだけ）', 'Pet it (a little)')}</li></ul>
+    <p class="mine">${tr(`本物の時間で数えます。1日に上がるのは${CARE_DAY}まで（今日 ${c.day === new Date().toDateString() ? c.got || 0 : 0}）。何日も会いに来ないと、少しさみしがって下がります。`, `Counted in real time, up to ${CARE_DAY} a day (today: ${c.day === new Date().toDateString() ? c.got || 0 : 0}). It drops a little if you stay away for days.`)}</p>
+    <h3>${tr('なかよしになると', 'As you grow closer')}</h3>
+    <ul class="bond-list">${BOND.map((b, i) => `<li class="${i <= lv ? 'on' : ''}"><b>${'♥'.repeat(i) || '♡'} ${b.name}</b>${i <= lv ? b.what : tr(`なかよし ${b.at} で、わかるよ`, `Unlocks at ${b.at}`)}</li>`).join('')}</ul>`);
 }
 
 function updateCamera(dt) {
@@ -633,6 +711,7 @@ function bubbleText() {
   if (S.dev < 0) return S.temp > 20 ? tr('（水があたたかすぎるかも…）', '(The water may be too warm…)') : S.dev > -HATCH_DAYS * 0.45 ? tr('（卵の中で何か動いた！）', '(Something moved inside the egg!)') : tr('（静かに育っている）', '(Growing quietly)');
   if (S.health < 30) return tr('ぐったり… 水と餌と水温を見直して', 'Very tired… check the water, food and temperature');
   if (S.dev < 9) return S.dev > 7 ? tr('そろそろお腹の袋がなくなりそう', 'The yolk sac is almost gone') : tr('卵黄の栄養で育ち中', 'Growing on its yolk');
+  if (F.mode === 'come' && bondLv() >= 2) return begging() ? tr('ごはんちょうだい！ 🍚', 'Food, please! 🍚') : bondLv() >= 4 ? tr('いっしょにあそぼ！ ✨', 'Let\'s play! ✨') : tr('かまって〜 💕', 'Pay attention to me 💕');
   if (S.satiety < 20) return tr('お腹すいた…！', 'Hungry…!');
   if (S.water < 45) return tr('水がにごってきた…', 'The water is getting cloudy…');
   if (tempFactor() < 0.8) return S.temp < 18 ? tr('水が冷たくて元気が出ない', 'Too cold to feel lively') : tr('水があたたかすぎる…', 'The water is too warm…');
@@ -664,7 +743,7 @@ function updateHUD() {
   $('#wt').textContent = S.dev < 0 ? '' : fmtWeight(weightOf(L));
   $('#sex').textContent = S.sexKnown ? (S.sex === 'メス' ? '♀ ' : '♂ ') + sexName(S.sex) : tr('性別 ？', 'Sex ?');
   meter('#m-sat', S.dev < 9 ? 100 : S.satiety); meter('#m-water', S.water); meter('#m-health', S.health);
-  { const el = $('#m-aff'); el.style.width = `${clamp(S.aff || 0, 0, 100)}%`; el.style.background = '#ff8fb3'; }
+  { const el = $('#m-aff'); el.style.width = `${clamp(S.aff || 0, 0, 100)}%`; el.style.background = '#ff8fb3'; const lv = bondLv(); $('#aff-lv').textContent = '♥'.repeat(lv); $('#aff-lv').title = BOND[lv].name; }
   $('#sat-label').textContent = S.dev < 9 ? tr('卵黄', 'Yolk') : tr('おなか', 'Food');
   $('#temp-val').textContent = `${S.temp}℃`;
   $('#temp-ok').textContent = tr('適温 ', 'Best ') + (S.dev < 9 ? '16〜19℃' : '18〜22℃');
@@ -832,14 +911,15 @@ function wireUI() {
   buildFoodMenu();
   $('#btn-food').onclick = () => { refreshFoodMenu(); $('#food-sheet').classList.toggle('open'); };
   $('#food-close').onclick = () => $('#food-sheet').classList.remove('open');
-  $('#btn-water').onclick = () => { S.water = Math.min(100, S.water + 45); for (const f of foods.filter(f => f.settled)) { scene.remove(f.mesh); foods.splice(foods.indexOf(f), 1); } toast(tr('💧 水を半分入れかえた。食べ残しも取りのぞいた', '💧 Changed half the water and removed leftovers')); };
+  $('#btn-water').onclick = () => { if (S.water < 75) care('water'); S.water = Math.min(100, S.water + 45); for (const f of foods.filter(f => f.settled)) { scene.remove(f.mesh); foods.splice(foods.indexOf(f), 1); } toast(tr('💧 水を半分入れかえた。食べ残しも取りのぞいた', '💧 Changed half the water and removed leftovers')); };
   $('#btn-zukan').onclick = () => openZukan('grow');
   $('#zukan-close').onclick = () => $('#zukan').classList.remove('open');
   document.querySelectorAll('#zukan .tabs button').forEach(b => b.onclick = () => openZukan(b.dataset.tab));
   $('#detail-close').onclick = () => $('#detail').classList.remove('open');
   document.querySelectorAll('#speed button').forEach((b, i) => b.onclick = () => setSpeed(i));
   $('#auto').onchange = (e) => { S.autofeed = e.target.checked; toast(S.autofeed ? tr('🍽 おまかせ ON：成長に合った餌と水かえを自動でします', '🍽 Auto ON: the right food and water changes, automatically') : tr('おまかせ OFF：自分で餌と水かえをしよう', 'Auto OFF: feed and change the water yourself')); };
-  $('#temp').oninput = (e) => { S.temp = +e.target.value; };
+  $('#temp').oninput = (e) => { const off = tempFactor() < 1; S.temp = +e.target.value; if (off && tempFactor() === 1) care('temp'); };
+  $('#m-aff').closest('.m').onclick = () => showBond();
   $('#btn-view').onclick = () => {
     const i = (VIEWS.findIndex(v => v.id === cam.view) + 1) % VIEWS.length;
     cam.view = VIEWS[i].id; cam.mode = 'follow'; $('#btn-cam').innerHTML = `🎥<span class="lbl"> ${tr('追いかけ', 'Follow')}</span>`;
@@ -909,6 +989,7 @@ function start() {
   checkZukan();
   if (S.dev < 0 && Object.keys(S.zukan).length <= 1) toast(tr('🥚 チョウザメの受精卵。ふ化まで約130時間（17℃のとき）', '🥚 A sturgeon egg. About 130 hours to hatch (at 17°C)'));
   renderTabs();
+  care('hello');
   starting = false;
   initBadges();
 }
@@ -1429,7 +1510,7 @@ function switchTo(i) {
   pickWander();
   $('#auto').checked = S.autofeed; $('#temp').value = S.temp;
   if (S.snapLater?.length) { pendingSnaps = S.snapLater; S.snapLater = []; }
-  renderTabs(); updateHUD(); save();
+  care('hello'); renderTabs(); updateHUD(); save();
 }
 function careIcon(st) {
   if (st.health < 40) return '⚠️';
@@ -1531,7 +1612,7 @@ function frame(dt) {
 requestAnimationFrame(loop);
 
 // 確認用
-window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, showLock, licensed, showStoryCard, openQuiz, showMaster, openArt, GENTEI, VOTE, FORM, setDev(d) { S.dev = d; S.age = d; } };
+window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, showLock, licensed, showStoryCard, openQuiz, showMaster, openArt, care, bondLv, doSpin, onTap, showBond, setMode, get F() { return F; }, GENTEI, VOTE, FORM, setDev(d) { S.dev = d; S.age = d; } };
 
 // アプリとして使えるように（ホーム画面に追加・オフライン）
 if ('serviceWorker' in navigator && isSecureContext && !new URLSearchParams(location.search).has('test')) {

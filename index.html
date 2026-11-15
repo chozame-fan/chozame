@@ -44,6 +44,12 @@
   .heart { position: fixed; z-index: 15; font-size: 26px; pointer-events: none; transform: translate(-50%, -50%); animation: heartUp 1.3s ease-out forwards; }
   @keyframes heartUp { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); } 100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), -260%) scale(.9); } }
   .m { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--sub); margin: 2px 0; }
+  .m.bond { cursor: pointer; }
+  #aff-lv { color: #ff8fb3; font-size: 9px; margin-left: 2px; letter-spacing: -1px; }
+  .bond-list { list-style: none; padding: 0; margin: 6px 0; }
+  .bond-list li { padding: 7px 10px; margin: 5px 0; border-radius: 9px; background: rgba(255,255,255,.04); color: var(--sub); font-size: 13px; line-height: 1.6; }
+  .bond-list li.on { background: rgba(255, 143, 179, .13); color: var(--tx); }
+  .bond-list li b { display: block; color: #ff8fb3; }
   .m .bar { height: 7px; background: rgba(255,255,255,.1); border-radius: 9px; overflow: hidden; }
   .m .bar i { display: block; height: 100%; width: 50%; border-radius: 9px; transition: width .4s; }
   .temp { display: grid; grid-template-columns: 52px 1fr 44px; align-items: center; gap: 6px; font-size: 12px; color: var(--sub); margin-top: 6px; }
@@ -309,7 +315,7 @@
     <div class="m"><span id="sat-label">おなか</span><div class="bar"><i id="m-sat"></i></div></div>
     <div class="m"><span data-en="Water">水質</span><div class="bar"><i id="m-water"></i></div></div>
     <div class="m"><span data-en="Health">元気</span><div class="bar"><i id="m-health"></i></div></div>
-    <div class="m"><span data-en="Bond">なかよし</span><div class="bar"><i id="m-aff"></i></div></div>
+    <div class="m bond"><span><span data-en="Bond">なかよし</span><b id="aff-lv"></b></span><div class="bar"><i id="m-aff"></i></div></div>
   </div>
   <div class="temp"><span data-en="Temp">水温</span><input id="temp" type="range" min="4" max="28" step="1"><span id="temp-val"></span></div>
   <div id="temp-ok"></div>
