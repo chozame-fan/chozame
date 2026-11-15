@@ -11,7 +11,9 @@ export const GENTEI = [
 export const VOTE = { month: '', list: [
 ] };
 
+// フォーム「チョウザメ みんなの絵」（回答はスプレッドシート「チョウザメ みんなの絵（回答）」にたまる）
+// 編集：https://docs.google.com/forms/d/1ebNI7nbiV2HQkzEWwweq6tb0K3nJhIKaQ2g_1FQ0YC0/edit
 export const FORM = {
-  url: '',
-  f: { kind: '', month: '', name: '', data: '', uid: '' },
+  url: 'https://docs.google.com/forms/d/e/1FAIpQLSdPPigSr0xjszrq__UA18QbrBatHLBQWH2WYPDHkLKw3FdGlg/formResponse',
+  f: { kind: 'entry.1282764522', month: 'entry.260650786', name: 'entry.287970072', data: 'entry.945206418', uid: 'entry.48775132' },
 };
