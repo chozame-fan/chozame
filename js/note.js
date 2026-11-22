@@ -36,6 +36,39 @@ export const NOTE = [
 ];
 export const noteById = (id) => NOTE.find(n => n.id === id);
 
+// 標津サーモン科学館で会えるチョウザメ（館の解説パネルを2026年11月に撮影して書き写した。写真は使っていない）。
+// c は体の色のめやす（図鑑の色の点）。札の文が読めなかった所は書かない。
+export const KAN_SHU = [
+  { id: 'siberia', c: '#9a6b55', name: tr('シベリアチョウザメ', 'Siberian sturgeon'), tag: tr('このゲームの子と同じ種類', 'Same kind as your fish'), lines: [
+    tr('シベリアのオビ川やエニセイ川などにすむ。', 'Lives in Siberian rivers such as the Ob and the Yenisei.'),
+    tr(`体長は2mをこえる、${M('淡水定着型')}（一生を川ですごす）の種類。`, `Grows over 2 m and is ${M('freshwater-resident')} (spends its whole life in rivers).`),
+    tr('保護のためにバルト海にも移され、そこでも広くすんでいる。', 'It was also moved to the Baltic Sea to protect it, and now lives widely there too.'),
+  ] },
+  { id: 'russia', c: '#5b4a52', name: tr('ロシアチョウザメ', 'Russian sturgeon'), lines: [
+    tr(`ウロコ（${M('骨板')}）が大きくて白い。`, `Its scales (${M('scutes')}) are large and white.`),
+    tr('大きいものは4mにもなる。黒海・カスピ海の沿岸などにすむ。', 'The biggest reach 4 m. Lives along the Black Sea and the Caspian Sea.'),
+    tr('川だけでくらす「陸封型」と、海から川をのぼる「遡河型」がいる。', 'Some stay in fresh water all their lives; others swim from the sea up rivers.'),
+  ] },
+  { id: 'shiro', c: '#c9b79a', name: tr('シロチョウザメ', 'White sturgeon'), lines: [
+    tr('おもに北アメリカの西海岸のあたりにすむ。体長は4m以上になる。', 'Mainly found off the west coast of North America. Grows to over 4 m.'),
+    tr(`子どものうちはほとんど黒いが、大きくなるにつれて白っぽくなり、${M('ベージュ色')}になる。`, `Almost black when young, it turns paler as it grows, ending up ${M('beige')}.`),
+  ] },
+  { id: 'bester', c: '#b59a86', name: tr('ベステル種', 'Bester'), lines: [
+    tr(`旧ソ連の時代に、ロシアで${M('オオチョウザメ（ベルーガ）のメス')}と${M('コチョウザメのオス')}をかけあわせて生まれた種類。`, `Bred in Russia in Soviet times by crossing a ${M('female beluga')} with a ${M('male sterlet')}.`),
+    tr('アゾフ海（ロシア）で養殖がさかん。キャビアや魚の肉が食べものとして使われている。', 'Widely farmed in the Sea of Azov (Russia). Its caviar and meat are eaten.'),
+  ] },
+  { id: 'bester-w', c: '#f3e6dc', name: tr('ベステル種（白）', 'White bester'), lines: [
+    tr('ベステル種の突然変異で、体が白い。', 'A white mutation of the bester.'),
+  ] },
+  { id: 'karumika', c: '#a08550', name: tr('カルミカ', 'Karumika'), lines: [
+    tr(`大きくても1m前後で、館の札では「チョウザメの中で${M('いちばん小さい')}」とされている。`, `Only about 1 m at most — the museum sign calls it the ${M('smallest')} sturgeon.`),
+    tr('水温などの変化に強い。シベリアの川、カスピ海・黒海などにすむ。', 'Copes well with changes in water temperature. Lives in Siberian rivers, the Caspian Sea, the Black Sea and more.'),
+  ] },
+  { id: 'amur', c: '#8d8f98', name: tr('アムールチョウザメ', 'Amur sturgeon'), lines: [
+    tr('アムール川の流域にすむチョウザメ（館の札の文は、シールで一部かくれていた）。', 'A sturgeon of the Amur River basin (part of the museum sign was covered).'),
+  ] },
+];
+
 // 節目の少し前に1回だけ出る豆知識（そのあとのクイズのヒントになる）
 export const TIPS = {
   y1: { note: 'name', t: tr('「チョウザメ」は「蝶」＋「サメ」。でもサメのなかまではない古代魚なんだって。', '"Chō-zame" means "butterfly shark" — but it isn\'t a shark. It\'s an ancient fish.') },

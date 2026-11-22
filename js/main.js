@@ -12,7 +12,7 @@ import {
 import { tr, EN, LANG, setLang, applyStatic } from './i18n.js';
 import { PARTNERS, VISIT } from './partner.js';
 import { BADGES, badgeById, badgeSVG, MASTER, PASS, shuffle, setPhotoSource } from './quiz.js';
-import { NOTE, noteById, TIPS, MAME } from './note.js';
+import { NOTE, noteById, TIPS, MAME, KAN_SHU } from './note.js';
 import { artBadgeSVG, artURL, makeEditor, validArt, esc, monthKey, monthLabel } from './art.js';
 import { STAMP_N, STAMP_GIFT, GOCHI_AFF, weekNow, MSGS, drawMyCard } from './daily.js';
 import { GENTEI, VOTE, FORM } from './gentei.js';
@@ -33,9 +33,10 @@ const LIC_KEY = 'chozame-license';
 const LIC_HASH = ['13f596e36bb99b4ad4f954a6a9488fda0f2bee781ccb84bac6ad397b1c123fbb'];
 // ---------------- ベータ版のお知らせ ----------------
 const OFFICIAL_URL = 'https://chozame-fan.github.io/chozame/';
-const UPDATED = '11/15';
+const UPDATED = '11/22';
 const BETA = tr(`β版・毎日なおしています（${UPDATED} 更新）`, `Beta — improved every day (updated ${UPDATED})`);
 const NEWS = [ // 新しい順。直したら上に足す
+  ['11/22', tr('🐟 図鑑の「📒 ノート」に「標津で会えるチョウザメ」7種類（館の解説の札から）と、10歳のクイズに2問を足しました', '🐟 Book → 📒 Notes now lists 7 kinds of sturgeon you can meet at Shibetsu (from the museum signs), plus 2 new age-10 quiz questions')],
   ['11/15', tr('📅 スタンプ帳の背景は、みんなが送ってくれた絵から、週がわりで出るようになりました', '📅 The stamp card background now rotates weekly through drawings sent in by players')],
   ['11/15', tr('📅 毎日のスタンプ帳（7個で「大好物のごはん」）と、かいた絵のアルバム・マイカード（画像で保存できる）', '📅 A daily stamp card (7 stamps = a favourite treat), plus an album of your drawings and My Cards you can save as images')],
   ['11/15', tr('💕「なかよし」は、自分の手でするお世話（えさ・水かえ・水温・会いに来る）で上がるように。なかよしになるほど、寄ってきたり、ごはんをねだったり、芸を見せたりします（メーターをタップで説明）', '💕 Bond now grows with hands-on care (feeding, water changes, temperature, visiting). The closer you are, the more it swims over, begs for food and even does tricks (tap the meter)')],
@@ -1205,12 +1206,16 @@ const reachedPhoto = (id) => { const who = R.reached?.[id]?.name; const st = R.l
 setPhotoSource((id) => R?.badges?.[id]?.img || (R ? reachedPhoto(id) : null));
 // ノートの章を、クイズの解説の中で開いて読めるようにする
 function noteRef(id) {
+  if (id === 'kan') return `<details class="note-ref"><summary>${tr('📒 ノート「標津で会えるチョウザメ」に書いてあるよ', '📒 It\'s in the notes: "Sturgeon at Shibetsu"')}</summary><ul>${KAN_SHU.map(k => `<li><b>${k.name}</b>：${k.lines[0]}</li>`).join('')}</ul></details>`;
   const n = noteById(id); if (!n) return '';
   return `<details class="note-ref"><summary>${tr(`📒 ノート「${n.title}」に書いてあるよ`, `📒 It's in the notes: "${n.title}"`)}</summary><ul>${n.lines.map(l => `<li>${l}</li>`).join('')}</ul></details>`;
 }
 function renderNote(body) {
   body.innerHTML = `<div class="src note-page"><h3>${tr('📒 チョウザメとは', '📒 What is a sturgeon?')}</h3><p class="note-lead">${tr('手書きのノートをまとめた読みものです。<mark>ピンク</mark>のところは大事なことば。クイズのヒントにもなるよ。', 'A reading page made from handwritten notes. <mark>Pink</mark> words are the key ones — handy for the quizzes.')}</p>
-    ${NOTE.map(n => `<section><h4>${n.title}</h4><ul>${n.lines.map(l => `<li>${l}</li>`).join('')}</ul></section>`).join('')}</div>`;
+    ${NOTE.map(n => `<section><h4>${n.title}</h4><ul>${n.lines.map(l => `<li>${l}</li>`).join('')}</ul></section>`).join('')}</div>
+    <div class="src note-page kan-shu"><h3>${tr('🐟 標津で会えるチョウザメ', '🐟 Sturgeon you can meet at Shibetsu')}</h3>
+    <p class="note-lead">${tr(`${PARTNERS.shibetsu.name}の水そうには、いろいろな種類のチョウザメがいっしょに泳いでいます。館の解説の札から書き写しました。水面に顔を出して、口をパクパクさせる子もいるよ。`, `Many kinds of sturgeon swim together in the tanks at the ${PARTNERS.shibetsu.name}. Copied from the museum's signs. Some even poke their heads out of the water and open and close their mouths.`)}</p>
+    ${KAN_SHU.map(k => `<section><h4><i class="ks-dot" style="background:${k.c}"></i>${k.name}${k.tag ? `<span class="ks-tag">${k.tag}</span>` : ''}</h4><ul>${k.lines.map(l => `<li>${l}</li>`).join('')}</ul></section>`).join('')}</div>`;
 }
 // 節目の45日前になったら、次のクイズのヒントになる豆知識を1回だけ出す
 function maybeTip() {
