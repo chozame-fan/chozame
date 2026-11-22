@@ -60,6 +60,16 @@ function chaikin(v, closed = false, n = 3) {
   return v;
 }
 
+// 種類ごとの色（[おとな, 若い時]）。標津サーモン科学館の解説の札と写真をもとにした目安。無い色はシベリアチョウザメ（ふつう）のまま
+export const SP_LOOK = {
+  russia: { top: ['#54464a', '#3a2e2c'], side: ['#857470', '#6c5a50'], bot: ['#efe7da', '#e4dacb'] },
+  shiro: { top: ['#a99f8b', '#2a2a2e'], side: ['#cbbfa6', '#3a3a3f'], bot: ['#f1eadc', '#9a968e'], fin: ['#8a8273', '#26262a'] }, // 子どもは黒く、大きくなるとベージュ
+  bester: { top: ['#8b7866', '#6d5a46'], side: ['#c6af98', '#a08668'], bot: ['#f3e9de', '#eadfcf'] },
+  'bester-w': { top: ['#f0dfd6', '#f2e2d8'], side: ['#f6ebe4', '#f7ede6'], bot: ['#fcf6f2', '#fcf6f2'], fin: ['#f2d6cc', '#efd2c6'], fe: ['#f8e6de', '#f6e2d9'], s2: '#f4e8e0' }, // 白い突然変異
+  karumika: { top: ['#7a6838', '#5d4d26'], side: ['#b59c5c', '#957f48'], bot: ['#f0e4c0', '#e6d9b0'] },
+  amur: { top: ['#686c76', '#474a54'], side: ['#9a9da6', '#787b85'], bot: ['#edece8', '#e1e0db'] },
+};
+
 // 1匹ずつの個性（生まれつき）。seed から毎回同じ値が出る
 export function makeTraits(seed) {
   let a = (seed | 0) || 1; const r = () => { a = (a * 16807) % 2147483647; return a / 2147483647; };
@@ -241,9 +251,10 @@ export class Fish {
       const lit = Math.min(0.95, hsl.l * (1 + (TR.light - 1) * k * grown) * (1 + 0.12 * calm));
       return c.setHSL(hsl.h + TR.hue * k * grown, Math.min(1, sat), lit);
     };
-    const top = tint(pick('#7a7562', '#4a4128', '#9b9384'));
-    const side = tint(pick('#a39d84', '#8a7c4c', '#b9b0a0'));
-    const bot = tint(pick('#efe6c9', '#e4dcc2', '#ddd5c5'), 0.3);
+    const SL = SP_LOOK[TR.sp] || {}; // 種類の色
+    const top = tint(pick(SL.top?.[0] ?? '#7a7562', SL.top?.[1] ?? '#4a4128', '#9b9384'));
+    const side = tint(pick(SL.side?.[0] ?? '#a39d84', SL.side?.[1] ?? '#8a7c4c', '#b9b0a0'));
+    const bot = tint(pick(SL.bot?.[0] ?? '#efe6c9', SL.bot?.[1] ?? '#e4dcc2', '#ddd5c5'), 0.3);
     const chin = new THREE.Color('#e6c95e');
     const adult = (1 - L.juv) * (1 - L.larva);
     const c = new THREE.Color();
@@ -304,7 +315,7 @@ export class Fish {
       return finColor(new THREE.ShapeGeometry(sh), (x, y) => { const p = prof(0.5 - x); return (y - (p.yc + p.h * 0.95)) / hMax(pts); });
     };
     const hMax = (pts) => Math.max(0.005, ...pts.map(q => q[1]));
-    const fIn = tint(pick('#5a574a', '#2e2a1e', '#ddd6c8')), fEdge = tint(pick('#d9b75c', '#8f8456', '#e6dfd2').lerp(new THREE.Color('#9a968a'), (1 - TR.finYellow) * 0.6 * grown));
+    const fIn = tint(pick(SL.fin?.[0] ?? '#5a574a', SL.fin?.[1] ?? '#2e2a1e', '#ddd6c8')), fEdge = tint(pick(SL.fe?.[0] ?? '#d9b75c', SL.fe?.[1] ?? '#8f8456', '#e6dfd2').lerp(new THREE.Color('#9a968a'), (1 - TR.finYellow) * 0.6 * grown));
     const finColor = (g, edgeOf) => {
       const p = g.attributes.position, col = [], cc = new THREE.Color();
       for (let i = 0; i < p.count; i++) { const e = Math.min(1, Math.max(0, edgeOf(p.getX(i), p.getY(i)))); cc.copy(fIn).lerp(fEdge, Math.pow(e, 1.6)); col.push(cc.r, cc.g, cc.b); }
@@ -380,7 +391,7 @@ export class Fish {
       add(mergeGeometries(scutes), this.mScute, true);
     }
     if (scutesLV.length) {
-      this.mScute2.color.set('#b3ab92').lerp(new THREE.Color('#cfc49e'), L.juv);
+      this.mScute2.color.set(SP_LOOK[TR.sp]?.s2 ?? '#b3ab92').lerp(new THREE.Color(SP_LOOK[TR.sp]?.s2 ?? '#cfc49e'), L.juv);
       add(mergeGeometries(scutesLV), this.mScute2);
     }
 

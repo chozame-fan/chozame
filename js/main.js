@@ -16,6 +16,7 @@ import { NOTE, noteById, TIPS, MAME, KAN_SHU } from './note.js';
 import { artBadgeSVG, artURL, makeEditor, validArt, esc, monthKey, monthLabel } from './art.js';
 import { STAMP_N, STAMP_GIFT, GOCHI_AFF, weekNow, MSGS, drawMyCard } from './daily.js';
 import { GENTEI, VOTE, FORM } from './gentei.js';
+import { SHU, shuById, PICK, rollKan, RARE_MATE, PICK_NOTE } from './shu.js';
 import { RALLY, SPOT_CODE, SPOT_AFF, DONE_GOCHI, BACK_GOCHI, spotOf, VERS, seasonOf, drawRally } from './rally.js';
 let decor = null; // スタンプラリーの完成した絵（水槽のかざり）。起動のとちゅうで使うので、ここで宣言
 applyStatic();
@@ -36,6 +37,7 @@ const OFFICIAL_URL = 'https://chozame-fan.github.io/chozame/';
 const UPDATED = '11/22';
 const BETA = tr(`β版・毎日なおしています（${UPDATED} 更新）`, `Beta — improved every day (updated ${UPDATED})`);
 const NEWS = [ // 新しい順。直したら上に足す
+  ['11/22', tr('🐟 卵をもらう時に、チョウザメの種類（標津で会える6種類）を選べるように。大型水槽ではほかの種類もいっしょに泳ぎ、集めると「標津のなかまバッジ」。おなかがすくと水面から顔を出して口をパクパク（タップで指パク）', '🐟 Choose a sturgeon kind (6 you can meet at Shibetsu) when you get an egg. Other kinds now share the big tank — find them all for a badge. Hungry fish poke their heads out and gape at the surface (tap for a finger-nibble)')],
   ['11/22', tr('🐟 図鑑の「📒 ノート」に「標津で会えるチョウザメ」7種類（館の解説の札から）と、10歳のクイズに2問を足しました', '🐟 Book → 📒 Notes now lists 7 kinds of sturgeon you can meet at Shibetsu (from the museum signs), plus 2 new age-10 quiz questions')],
   ['11/15', tr('📅 スタンプ帳の背景は、みんなが送ってくれた絵から、週がわりで出るようになりました', '📅 The stamp card background now rotates weekly through drawings sent in by players')],
   ['11/15', tr('📅 毎日のスタンプ帳（7個で「大好物のごはん」）と、かいた絵のアルバム・マイカード（画像で保存できる）', '📅 A daily stamp card (7 stamps = a favourite treat), plus an album of your drawings and My Cards you can save as images')],
@@ -66,13 +68,16 @@ function ensureTraits(st) {
   if (!st.traits || st.traits.spotDark === undefined) { let h = st.created | 0; for (const ch of st.name) h = (h * 31 + ch.charCodeAt(0)) | 0; st.traits = makeTraits(Math.abs(h) + 1); }
   return st.traits;
 }
-function newState(name, kan) {
+function newState(name, kan, sp = 'siberia') {
   const st = {
     v: 1, name, sex: Math.random() < 0.5 ? 'オス' : 'メス', sexKnown: false,
     age: -HATCH_DAYS, dev: -HATCH_DAYS, satiety: 70, water: 100, health: 100, temp: 17, qual: 1,
     zukan: {}, foods: {}, speed: 2, autofeed: false, tank: 'incubator', created: Date.now(),
   };
-  if (kan) { st.kan = kan.id; st.traits = { ...makeTraits(kan.seed), ...kan.traits }; } // ご当地チョウザメ：館ごとに決まった個性
+  if (kan) sp = rollKan(); // 館の卵：館で会える7種類のどれか（白はまれ）
+  st.sp = sp;
+  if (kan) { st.kan = kan.id; st.traits = { ...makeTraits(kan.seed), ...shuById(sp).traits, ...kan.traits, sp }; } // ご当地チョウザメ：館ごとに決まった個性
+  else if (sp !== 'siberia') st.traits = { ...makeTraits(Math.floor(Math.random() * 1e9) + 1), ...shuById(sp).traits, sp };
   return st;
 }
 // 館のQRから来た：会いに行ける場所に記録
@@ -133,7 +138,7 @@ function applyTank(announce) {
   T = want; S.tank = T.id;
   tank.build(T);
   others.build(T);
-  updateDecor();
+  updateDecor(); buildMates();
   for (const f of foods.splice(0)) scene.remove(f.mesh);
   if (first || !announce) { F.pos.set(0, Math.min(T.h * 0.3, 3), 0); }
   else { F.pos.set(0, T.h * 0.3, 0); toast(tr(`🏠 ${T.name}にお引っ越し！`, `🏠 Moved to the ${T.name}!`)); if (bigger) offerNewFish(S, T); }
@@ -167,6 +172,7 @@ function mouthPos() {
 
 // 泳ぎ方の種類：ゆっくり・ふつう・急に速く・水面を見上げる
 const MODES = {
+  surface: { v: 0.3, t: [5, 8], amp: 0.7 }, // 水面から顔を出して口をパクパク（標津の動画から）
   rest: { v: 0.12, t: [4, 8], amp: 0.6 },
   cruise: { v: 0.45, t: [5, 10], amp: 1 },
   burst: { v: 1.9, t: [1, 2.2], amp: 1.8 },
@@ -180,6 +186,8 @@ function setMode(m) {
     F.target.set((Math.random() * 2 - 1) * b.x, b.y0 + Math.random() * Math.min(T.h * 0.4, L), (Math.random() * 2 - 1) * b.z);
   } else if (m === 'lookup') { // 水面に向かって顔を上げる
     F.target.set(clamp(F.pos.x + Math.cos(F.yaw) * L * 0.8, -b.x, b.x), b.y1, clamp(F.pos.z - Math.sin(F.yaw) * L * 0.8, -b.z, b.z));
+  } else if (m === 'surface') { // 水面まで上がって顔を出す
+    F.target.set(clamp(F.pos.x + Math.cos(F.yaw) * L * 0.6, -b.x, b.x), T.h - L * 0.06, clamp(F.pos.z - Math.sin(F.yaw) * L * 0.6, -b.z, b.z));
   } else if (m === 'come') comeTarget();
   else pickWander();
   if (m === 'rest') F.target.y = b.y0;
@@ -194,6 +202,8 @@ function nextMode() {
   // なかよしだと、ときどき自分から寄ってくる。だいすきの子は、おなかがすくとよく寄ってきてねだる
   const lv = bondLv(), pCome = begging() ? 0.7 : lv >= 3 ? 0.25 : lv >= 2 ? 0.16 : 0;
   if (Math.random() < pCome) { setMode('come'); return; }
+  // おなかがすくと、水面に顔を出して口をパクパク（標津の水そうのように）
+  if (S.dev >= 30 && T.h > L * 0.9 && Math.random() < (S.satiety < 55 ? 0.3 : 0.04)) { setMode('surface'); return; }
   const x = r * (pRest + pCruise + pBurst + pLook);
   setMode(x < pRest ? 'rest' : x < pRest + pCruise ? 'cruise' : x < pRest + pCruise + pBurst ? 'burst' : canLook ? 'lookup' : 'cruise');
   // ときどきくるっと体をひねって、お腹や背中を見せる
@@ -227,7 +237,7 @@ function updateFish(dt) {
   if (food) F.target.copy(food.mesh.position).add(new THREE.Vector3(0, L * 0.05, 0));
   else if (!yolkStage) {
     F.modeT -= dt;
-    if (F.modeT <= 0 || (F.mode !== 'lookup' && F.mode !== 'come' && F.pos.distanceTo(F.target) < L * 0.6 + 0.3)) {
+    if (F.modeT <= 0 || (F.mode !== 'lookup' && F.mode !== 'come' && F.mode !== 'surface' && F.pos.distanceTo(F.target) < L * 0.6 + 0.3)) {
       if (F.modeT <= 0) nextMode(); else if (F.mode === 'burst') setMode('cruise'); else pickWander();
     }
   } else { F.wanderT -= dt; if (F.wanderT <= 0 || F.pos.distanceTo(F.target) < L * 0.8 + 0.3) pickWander(); }
@@ -244,9 +254,11 @@ function updateFish(dt) {
   const yawRate = F.yawV;
   F.yaw += yawRate * dt;
   // 上を向く・下を向く（餌や水面に向かう時は大きく傾ける）
-  const pmax = food || F.mode === 'lookup' ? 1.0 : 0.55;
+  const atTop = !food && F.mode === 'surface' && F.pos.y > b.y1 - L * 0.4;
+  const pmax = food || F.mode === 'lookup' || F.mode === 'surface' ? 1.1 : 0.55;
   let wantPitch = clamp(Math.atan2(to.y, Math.max(horiz, L * 0.35)), -pmax, pmax);
   if (!food && F.mode === 'lookup' && F.pos.y > b.y1 - L * 0.5) wantPitch = 0.75; // 水面で顔を上げたまま
+  if (atTop) wantPitch = 1.0 + 0.08 * Math.sin(now * 2.2); // 顔を水から出して、ゆらゆら
   F.pitchV = (F.pitchV || 0) + ((wantPitch - F.pitch) * 1.6 - (F.pitchV || 0)) * Math.min(1, dt * 2.5);
   F.pitch += F.pitchV * dt;
 
@@ -259,12 +271,13 @@ function updateFish(dt) {
   if (pet.t > 0) vWant *= 0.15; // なでられている間は、じっとしている
   const near = arrived;
   if (near) vWant = Math.min(vWant, L * 0.08); // 目の前まで来たら、こっちを見たまま止まる
+  if (atTop && F.pos.distanceTo(F.target) < L * 0.5) vWant = Math.min(vWant, L * 0.05);
   vWant = Math.max(vWant, 0.15);
   F.speed += (vWant - F.speed) * Math.min(1, dt * (burst ? 2.5 : 0.9));
   const fw = new THREE.Vector3(Math.cos(F.yaw) * Math.cos(F.pitch), Math.sin(F.pitch), -Math.sin(F.yaw) * Math.cos(F.pitch));
   F.pos.addScaledVector(fw, F.speed * dt);
   const ox = F.pos.x, oz = F.pos.z;
-  F.pos.x = clamp(F.pos.x, -b.x, b.x); F.pos.z = clamp(F.pos.z, -b.z, b.z); F.pos.y = clamp(F.pos.y, b.y0, b.y1);
+  F.pos.x = clamp(F.pos.x, -b.x, b.x); F.pos.z = clamp(F.pos.z, -b.z, b.z); F.pos.y = clamp(F.pos.y, b.y0, F.mode === 'surface' && !food ? T.h - L * 0.06 : b.y1);
   if (ox !== F.pos.x || oz !== F.pos.z) { if (F.mode === 'burst') setMode('cruise'); else if (F.mode !== 'come') pickWander(); }
 
   // 体のひねり：曲がる時に少し傾く＋ときどき大きくひねる
@@ -290,6 +303,7 @@ function updateFish(dt) {
   if (food && best < L * 0.9) mouthWant = 0.5 + 0.5 * Math.sin(now * 5.5);
   if (!food && F.mode === 'lookup' && F.pos.y > b.y1 - L * 0.8) mouthWant = 0.5 + 0.5 * Math.sin(now * 4.5);
   if (close && begging()) mouthWant = 0.5 + 0.5 * Math.sin(now * 6); // ごはんちょうだい
+  if (atTop) { mouthWant = 0.55 + 0.45 * Math.sin(now * 3.2); surfaceRipple(dt, fw, L); } // 水面で大きく口をパクパク
   if (F.eatT > 0) mouthWant = 0.5 - 0.5 * Math.cos((1.8 - F.eatT) * 7);
   if (yolkStage || S.dev < 12) mouthWant = 0;
   F.mouth = (F.mouth || 0) + (Math.max(0, mouthWant) - (F.mouth || 0)) * Math.min(1, dt * 7);
@@ -298,7 +312,7 @@ function updateFish(dt) {
   // 鼻（口先）の表情：餌のにおいをかぐ時は反ってヒクヒク、水面では上に反る、底では砂をさぐる
   let snoutWant = 0.08 * Math.sin(now * 0.6) + 0.06 * Math.sin(now * 1.7 + 2);
   if (food && best < L * 1.6) snoutWant = 0.55 + 0.3 * Math.sin(now * 3.2);
-  else if (!food && F.mode === 'lookup') snoutWant = 0.85 + 0.15 * Math.sin(now * 2);
+  else if (!food && (F.mode === 'lookup' || atTop)) snoutWant = 0.85 + 0.15 * Math.sin(now * 2);
   else if (!food && F.mode === 'rest') snoutWant = -0.15 + 0.35 * Math.max(0, Math.sin(now * 1.3)) ** 3; // 底をつつく
   else if (!food && F.mode === 'burst') snoutWant = -0.2;
   if (F.eatT > 0) snoutWant = 0.35 + 0.35 * Math.sin((1.8 - F.eatT) * 7); // モグモグに合わせて鼻も動く
@@ -600,7 +614,7 @@ const BOND = [
   { at: 85, name: tr('しんゆう', 'Best friends'), what: tr('タップすると、くるっと一回転の芸を見せてくれる', 'Tap it and it shows you a spin trick') },
 ];
 const CARE = { // [上がる量, 次に上がるまでの秒]
-  food: [2, 60], water: [2, 90], temp: [3, 120], pet: [1, 45], hello: [3, 0],
+  yubi: [2, 60], food: [2, 60], water: [2, 90], temp: [3, 120], pet: [1, 45], hello: [3, 0],
 };
 const CARE_DAY = 20; // 1日に上がるのはここまで
 const bondLv = (a = S?.aff || 0) => BOND.reduce((n, b, i) => (a >= b.at ? i : n), 0);
@@ -625,9 +639,94 @@ function doSpin() { if ((F.spinT || 0) > 0 || S.dev < 12) return; F.spinT = 0.9;
 function onTap(onFish) {
   if (!S || S.dev < 9 || releasing) return;
   const lv = bondLv();
+  if (F.mode === 'surface' && S.dev >= 30 && F.pos.y > bounds().y1 - len() * 0.4) { yubiPaku(); return; }
   if (onFish && lv >= 4) { doSpin(); return; }
   if (lv >= 1 && performance.now() - (F.calledAt || -9e3) > 3000) { F.calledAt = performance.now(); setMode('come'); }
 }
+// 指パク：水面で口を開けている子に、指をそっと出す（標津サーモン科学館の体験から）
+function yubiPaku() {
+  const L = len(), fw = new THREE.Vector3(Math.cos(F.yaw) * Math.cos(F.pitch), Math.sin(F.pitch), -Math.sin(F.yaw) * Math.cos(F.pitch));
+  const v = F.pos.clone().addScaledVector(fw, L * 0.3).project(camera), x = (v.x + 1) / 2 * innerWidth, y = (1 - v.y) / 2 * innerHeight;
+  spawnHeart(x, y - 30, '👆'); setTimeout(() => spawnHeart(x + 14, y - 50, '💕'), 350);
+  F.eatT = 1.8; audio.chime?.(); care('yubi');
+  R.yubi = (R.yubi || 0) + 1;
+  if (R.yubi === 1) toast(tr(`👆 指パク！ ${S.name}が指にちゅっと吸いついた。歯がないので痛くないよ`, `👆 Finger-nibble! ${S.name} sucked on your finger. No teeth, so it doesn't hurt`), true);
+  save();
+}
+// 水面の波紋（顔を出してパクパクしている時）
+const ripples = [];
+const rippleGeo = new THREE.RingGeometry(0.82, 1, 40).rotateX(-Math.PI / 2);
+function surfaceRipple(dt, fw, L) {
+  F.ripT = (F.ripT ?? 0) - dt; if (F.ripT > 0) return; F.ripT = 0.55;
+  const m = new THREE.Mesh(rippleGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, depthWrite: false }));
+  const h = F.pos.clone().addScaledVector(fw, L * 0.3); m.position.set(h.x, T.h + 0.05, h.z); m.userData = { t: 0, L }; m.scale.setScalar(L * 0.05);
+  scene.add(m); ripples.push(m);
+}
+function updateRipples(dt) {
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const m = ripples[i]; m.userData.t += dt; const k = m.userData.t / 1.6;
+    m.scale.setScalar(m.userData.L * (0.05 + 0.45 * k)); m.material.opacity = 0.55 * (1 - k);
+    if (k >= 1) { scene.remove(m); m.material.dispose(); ripples.splice(i, 1); }
+  }
+}
+
+// ---------------- 水そうのなかま（ほかの種類のチョウザメ）と、種類あつめ ----------------
+// 大型水槽・池では、館の水そうのように別の種類のチョウザメが2〜3匹いっしょに泳ぐ。見かけた種類は図鑑に記録
+const mates = [];
+function buildMates() {
+  for (const m of mates.splice(0)) { scene.remove(m.f.group); m.f.group.traverse(o => o.geometry?.dispose()); }
+  if (!S || S.dev < 0 || !T || T.w < 360) return;
+  let a = (Math.abs((S.created | 0) + T.w * 7919) % 2147483646) + 1; const rnd = () => { a = (a * 16807) % 2147483647; return a / 2147483647; };
+  const mine = S.sp || 'siberia', pool = PICK.filter(s => s.id !== mine).map(s => s.id), n = T.w >= 800 ? 3 : 2;
+  for (let i = 0; i < n; i++) {
+    const sp = i === 0 && rnd() < RARE_MATE ? 'bester-w' : pool.splice(Math.floor(rnd() * pool.length), 1)[0];
+    const L = T.w >= 800 ? 100 + rnd() * 60 : 65 + rnd() * 30;
+    const f = new Fish(); f.setTraits({ ...makeTraits(Math.floor(rnd() * 1e6) + 1), ...shuById(sp).traits, sp }); f.build(lookFor(1500, L));
+    f.group.scale.setScalar(L); f.group.rotation.order = 'YZX'; f.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    const m = { f, sp, L, pos: new THREE.Vector3((rnd() - 0.5) * T.w * 0.6, T.h * (0.2 + rnd() * 0.3), (rnd() - 0.5) * T.d * 0.5), tgt: new THREE.Vector3(), yaw: rnd() * 6, pitch: 0, sp0: 0, ph: rnd() * 6, t: 0, top: 0 };
+    mates.push(m); scene.add(f.group); markShu(sp);
+  }
+}
+function updateMates(dt, now) {
+  for (const m of mates) {
+    const L = m.L, bx = T.w / 2 - L * 0.55, bz = T.d / 2 - L * 0.3;
+    m.t -= dt;
+    if (m.t <= 0 || m.pos.distanceTo(m.tgt) < L * 0.6) { // 行き先を決める。ときどき水面で顔を出す
+      m.top = Math.random() < 0.12 ? 1 : 0; m.t = m.top ? 5 : 6 + Math.random() * 6;
+      m.tgt.set((Math.random() * 2 - 1) * bx, m.top ? T.h - L * 0.06 : L * 0.1 + Math.random() * Math.min(T.h * 0.5, L), (Math.random() * 2 - 1) * bz);
+    }
+    if (F.pos.distanceTo(m.pos) < (len() + L) * 0.5) m.tgt.set(clamp(m.pos.x * 2 - F.pos.x, -bx, bx), m.tgt.y, clamp(m.pos.z * 2 - F.pos.z, -bz, bz)); // 主役の子をよける
+    const to = m.tgt.clone().sub(m.pos), h = Math.hypot(to.x, to.z);
+    let dy = Math.atan2(-to.z, to.x) - m.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    m.yaw += clamp(dy * 1.5, -0.6, 0.6) * dt;
+    const atTop = m.top && m.pos.y > T.h - L * 0.4;
+    m.pitch += ((atTop ? 1.0 : clamp(Math.atan2(to.y, Math.max(h, L * 0.4)), -0.5, 0.9)) - m.pitch) * Math.min(1, dt * 1.5);
+    m.sp0 += ((atTop && h < L * 0.6 ? L * 0.04 : L * 0.35) - m.sp0) * Math.min(1, dt);
+    const fw = new THREE.Vector3(Math.cos(m.yaw) * Math.cos(m.pitch), Math.sin(m.pitch), -Math.sin(m.yaw) * Math.cos(m.pitch));
+    m.pos.addScaledVector(fw, m.sp0 * dt);
+    m.pos.set(clamp(m.pos.x, -bx, bx), clamp(m.pos.y, L * 0.08, m.top ? T.h - L * 0.06 : T.h - L * 0.1 - 0.2), clamp(m.pos.z, -bz, bz));
+    m.ph += dt * (2.3 + (m.sp0 / L) * 5.5);
+    m.f.setSwim(m.ph, 0.022 + Math.min(0.03, m.sp0 / L * 0.03), clamp(-dy * 0.1, -0.15, 0.15), 0.2 * Math.sin(now * 1.3 + m.ph * 0.1));
+    m.f.setMouth(atTop ? 0.55 + 0.45 * Math.sin(now * 3 + m.ph) : 0);
+    m.f.setExpr(atTop ? 0.9 : 0.08 * Math.sin(now * 0.6 + m.ph), 0, -0.2 + 0.1 * Math.sin(now * 2.6), 0.15 * Math.sin(now * 2.1));
+    m.f.group.position.copy(m.pos).addScaledVector(fw, -PIVOT * L);
+    m.f.group.rotation.set(0, m.yaw, m.pitch);
+  }
+}
+// 種類あつめ：育てた子・見かけたなかま。選べる6種類がそろうと「標津のなかまバッジ」（白いベステルは当たり）
+function markShu(sp) {
+  R.seen ||= {}; if (R.seen[sp]) return; R.seen[sp] = Date.now();
+  if (!starting) toast(tr(`🐟 図鑑に「${shuById(sp).name}」を記録（図鑑の📒ノート）`, `🐟 "${shuById(sp).name}" recorded in your book (📒 Notes)`));
+  if (!R.shuDone && PICK.every(s => R.seen[s.id])) { R.shuDone = Date.now(); setTimeout(() => { toast(tr('🏅 6種類そろった！「標津のなかまバッジ」をもらったよ', '🏅 All 6 kinds found! You got the "Shibetsu Friends" badge'), true); audio.chime?.(); }, 2500); }
+  save();
+}
+const shuSVG = (size = 80) => { // 種類あつめのバッジ：種類の色の丸を輪にならべる
+  const got = R.seen || {}, r = size * 0.32, c = size / 2;
+  const dots = PICK.map((s, i) => { const a = i / PICK.length * Math.PI * 2 - Math.PI / 2; return `<circle cx="${c + Math.cos(a) * r}" cy="${c + Math.sin(a) * r}" r="${size * 0.1}" fill="${got[s.id] ? s.c : '#3a4a52'}" stroke="#0004"/>`; }).join('');
+  const w = shuById('bester-w');
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${c}" cy="${c}" r="${c - 2}" fill="#16323d" stroke="#ffd76a" stroke-width="3"/>${dots}<circle cx="${c}" cy="${c}" r="${size * 0.12}" fill="${got[w.id] ? w.c : '#2a3a42'}" stroke="${got[w.id] ? '#ffd76a' : '#0004'}" stroke-width="2"/></svg>`;
+};
+
 function showBond() {
   const a = Math.round(S.aff || 0), lv = bondLv(), c = S.care || {};
   showDetail(tr(`💕 ${S.name}との なかよし`, `💕 Your bond with ${S.name}`), null, `<p class="q-big" style="text-align:center">${'♥'.repeat(lv) || '♡'} ${BOND[lv].name}（${a}）</p>
@@ -719,6 +818,7 @@ function bubbleText() {
   if (S.health < 30) return tr('ぐったり… 水と餌と水温を見直して', 'Very tired… check the water, food and temperature');
   if (S.dev < 9) return S.dev > 7 ? tr('そろそろお腹の袋がなくなりそう', 'The yolk sac is almost gone') : tr('卵黄の栄養で育ち中', 'Growing on its yolk');
   if (F.mode === 'come' && bondLv() >= 2) return begging() ? tr('ごはんちょうだい！ 🍚', 'Food, please! 🍚') : bondLv() >= 4 ? tr('いっしょにあそぼ！ ✨', 'Let\'s play! ✨') : tr('かまって〜 💕', 'Pay attention to me 💕');
+  if (F.mode === 'surface' && S.dev >= 30) return tr('水面から顔を出して、口をパクパク！（タップで指パク）', 'Head out of the water, mouth opening and closing! (Tap for a finger-nibble)');
   if (S.satiety < 20) return tr('お腹すいた…！', 'Hungry…!');
   if (S.water < 45) return tr('水がにごってきた…', 'The water is getting cloudy…');
   if (tempFactor() < 0.8) return S.temp < 18 ? tr('水が冷たくて元気が出ない', 'Too cold to feel lively') : tr('水があたたかすぎる…', 'The water is too warm…');
@@ -736,7 +836,7 @@ function traitText(t) {
   if (t.curious > 1.2) w.push(tr('好奇心おうせい', 'curious'));
   if (t.sniffy > 1.2) w.push(tr('においに敏感', 'keen nose'));
   if (t.snout > 1.07) w.push(tr('口先すらり', 'slim snout')); else if (t.snout < 0.93) w.push(tr('丸い口先', 'round snout'));
-  return (S.kan && PARTNERS[S.kan] ? `🎟 ${PARTNERS[S.kan].name}${tr('の子', '')} ／ ` : '') + tr('性格：', 'Personality: ') + w.join(tr('・', ' · ')) + ' ／ ' + SPOT[t.spotShape];
+  return (S.kan && PARTNERS[S.kan] ? `🎟 ${PARTNERS[S.kan].name}${tr('の子', '')} ／ ` : '') + `🐟 ${shuById(S.sp).name} ／ ` + tr('性格：', 'Personality: ') + w.join(tr('・', ' · ')) + ' ／ ' + SPOT[t.spotShape];
 }
 function updateHUD() {
   const L = len();
@@ -1001,6 +1101,7 @@ function start() {
   care('hello');
   starting = false;
   initBadges();
+  R.seen ||= {}; for (const st of R.list) R.seen[st.sp || 'siberia'] ||= st.created || Date.now(); // 育てている子の種類
   if (SPOT_CODE) { // 館内のQRから来た：アドレスから合言葉を消してから、スタンプラリーに足す
     const q = new URLSearchParams(location.search); q.delete('spot'); history.replaceState(null, '', location.pathname + (q.size ? '?' + q : ''));
     setTimeout(() => rallyScan(SPOT_CODE), 1500);
@@ -1215,7 +1316,8 @@ function renderNote(body) {
     ${NOTE.map(n => `<section><h4>${n.title}</h4><ul>${n.lines.map(l => `<li>${l}</li>`).join('')}</ul></section>`).join('')}</div>
     <div class="src note-page kan-shu"><h3>${tr('🐟 標津で会えるチョウザメ', '🐟 Sturgeon you can meet at Shibetsu')}</h3>
     <p class="note-lead">${tr(`${PARTNERS.shibetsu.name}の水そうには、いろいろな種類のチョウザメがいっしょに泳いでいます。館の解説の札から書き写しました。水面に顔を出して、口をパクパクさせる子もいるよ。`, `Many kinds of sturgeon swim together in the tanks at the ${PARTNERS.shibetsu.name}. Copied from the museum's signs. Some even poke their heads out of the water and open and close their mouths.`)}</p>
-    ${KAN_SHU.map(k => `<section><h4><i class="ks-dot" style="background:${k.c}"></i>${k.name}${k.tag ? `<span class="ks-tag">${k.tag}</span>` : ''}</h4><ul>${k.lines.map(l => `<li>${l}</li>`).join('')}</ul></section>`).join('')}</div>`;
+    <p class="ks-count">${tr(`🐟 種類あつめ：${PICK.filter(s => R.seen?.[s.id]).length}/${PICK.length}（卵で育てるか、大型水槽で見かけると色がつく。6種類で「標津のなかまバッジ」。白いベステルは当たり）`, `🐟 Kinds found: ${PICK.filter(s => R.seen?.[s.id]).length}/${PICK.length} (raise one, or spot one in the big tank. All 6 earns a badge. The white bester is a rare bonus)`)}</p>
+    ${KAN_SHU.map(k => `<section class="${R.seen?.[k.id] ? 'got' : 'not'}"><h4><i class="ks-dot" style="background:${R.seen?.[k.id] ? k.c : '#c9d2d6'}"></i>${k.name}${k.tag ? `<span class="ks-tag">${k.tag}</span>` : ''}${R.seen?.[k.id] ? '' : `<span class="ks-tag ks-no">${tr('まだ', 'not yet')}</span>`}</h4><ul>${k.lines.map(l => `<li>${l}</li>`).join('')}</ul></section>`).join('')}</div>`;
 }
 // 節目の45日前になったら、次のクイズのヒントになる豆知識を1回だけ出す
 function maybeTip() {
@@ -1328,6 +1430,11 @@ function renderBadges(body) {
   if (rallyOn()) {
     const r = rallySt(), card = document.createElement('div'); card.className = 'card badge-card' + (r.done ? '' : ' locked'); card.dataset.art = 'rally';
     card.innerHTML = `<div class="ph"><img class="rally-badge" src="${drawRally(r.got, 'base', 160, r.done).toDataURL('image/jpeg', .85)}" alt=""></div><div class="ti">${tr('会いに行ったよバッジ', 'I Visited badge')}</div><div class="me">${r.done ? tr(`${dateStr(r.done)} ゲット`, `Got ${dateStr(r.done)}`) : tr(`スタンプラリー ${rallyN()}/${RALLY.spots.length}`, `Stamp rally ${rallyN()}/${RALLY.spots.length}`)}</div>`;
+    grid.appendChild(card);
+  }
+  { // 種類あつめ
+    const n = PICK.filter(s => R.seen?.[s.id]).length, card = document.createElement('div'); card.className = 'card badge-card' + (R.shuDone ? '' : ' locked'); card.dataset.art = 'shu';
+    card.innerHTML = `<div class="ph">${shuSVG(80)}</div><div class="ti">${tr('標津のなかまバッジ', 'Shibetsu Friends badge')}</div><div class="me">${R.shuDone ? tr(`${dateStr(R.shuDone)} ゲット`, `Got ${dateStr(R.shuDone)}`) : tr(`種類あつめ ${n}/${PICK.length}`, `Kinds found ${n}/${PICK.length}`)}${R.seen?.['bester-w'] ? ' ✨' : ''}</div>`;
     grid.appendChild(card);
   }
   renderAlbum(body);
@@ -1591,6 +1698,7 @@ function wireArt() {
       else { t.dataset.arm = 1; t.textContent = tr('もう一回おすと けします（もどせません）', 'Tap again to remove (cannot be undone)'); }
     }
     else if (a === 'rally') showRally();
+    else if (a === 'shu') openZukan('note');
     else if (a === 'rally-code') rallyScan($('#rally-code').value);
     else if (a === 'rally-ver') { rallyVer = t.dataset.v; showRally(); }
     else if (a === 'rally-save') saveCanvas(rallyCanvas(), rallyFile());
@@ -1650,7 +1758,7 @@ function startRelease(ending = false) {
   $('#hud').hidden = true; $('#bottom').hidden = true; $('#ruler').hidden = true; $('#toasts').innerHTML = ''; toastQ = [];
   for (const f of foods.splice(0)) scene.remove(f.mesh);
   const st = S, L = len();
-  const rec = { ending: ending || undefined, kan: st.kan || null, name: st.name, age: st.age, len: L, w: weightOf(L), sex: st.sexKnown ? st.sex : null, date: Date.now(), img: null, zukan: Object.keys(st.zukan).length, story: storyOf(st, L, true) };
+  const rec = { ending: ending || undefined, kan: st.kan || null, sp: st.sp || 'siberia', name: st.name, age: st.age, len: L, w: weightOf(L), sex: st.sexKnown ? st.sex : null, date: Date.now(), img: null, zukan: Object.keys(st.zukan).length, story: storyOf(st, L, true) };
   playRelease({
     renderer, st, len: L, look: lookFor(st.dev, L), traits: ensureTraits(st), audio,
     onSnap: (cv) => {
@@ -1701,14 +1809,16 @@ function offerNewFish(st, newTank) {
   $('#newfish-text').innerHTML = tr(`${st.name}が<b>${newTank.name}</b>へ引っ越して、前の水槽があいたよ。<br>もう1匹、卵から育てる？（最大${MAX_FISH}匹・あと${MAX_FISH - R.list.length}匹）`, `${st.name} moved to the <b>${newTank.name}</b>, so the old tank is free.<br>Raise another one from an egg? (up to ${MAX_FISH} fish, ${MAX_FISH - R.list.length} more)`);
   $('#newfish h2').textContent = tr('🏠 水槽があいたよ', '🏠 A tank is free');
   $('#newfish-name').value = '';
+  spPicker($('#newfish-sp'), null);
   $('#newfish').hidden = false;
 }
-function addFish(name, kan) {
-  const ns = newState(name, kan);
+function addFish(name, kan, sp) {
+  const ns = newState(name, kan, sp);
   ns.temp = 17; ns.autofeed = S.autofeed;
   R.list.push(ns); save();
   switchTo(R.list.length - 1);
   toast(tr(`🥚 ${name}の卵を受け取った！ 上の名前ボタンで見る子を切りかえられるよ`, `🥚 You got ${name}'s egg! Switch fish with the name buttons at the top`));
+  markShu(ns.sp); if (kan) eggSpToast(ns);
 }
 // 見る子を切りかえる
 function switchTo(i) {
@@ -1751,14 +1861,28 @@ function renderTabs() {
   });
 }
 
+// 卵の種類を選ぶ（館の卵は選べず、7種類のどれかが生まれる）
+let pickSp = 'siberia';
+function spPicker(box, kan) {
+  if (kan) { box.onclick = null; box.innerHTML = `<p class="sp-kan">${tr('🎲 館の卵からは、館で会える7種類のどれかが生まれます。白いベステルは、めったに出ない当たり！', '🎲 A museum egg hatches into one of the 7 kinds you can meet there. A white bester is a rare find!')}</p>`; return; }
+  pickSp = 'siberia';
+  const draw = () => { box.innerHTML = `<p class="sp-h">${tr('どの種類にする？', 'Which kind?')}</p><div class="sp-row">${PICK.map(s => `<button type="button" data-sp="${s.id}" class="${s.id === pickSp ? 'on' : ''}"><i style="background:${s.c}"></i>${s.name}</button>`).join('')}</div><p class="sp-note">${PICK_NOTE[pickSp]}${pickSp === 'siberia' ? '' : tr('（育つ早さ・大きさはシベリアチョウザメの目安のまま）', ' (growth speed and size still follow the Siberian sturgeon)')}</p>`; };
+  box.onclick = (e) => { const b = e.target.closest('[data-sp]'); if (b) { pickSp = b.dataset.sp; draw(); } };
+  draw();
+}
+function eggSpToast(st) {
+  const s = shuById(st.sp);
+  setTimeout(() => toast(st.sp === 'bester-w' ? tr(`✨ 当たり！ ${st.name}は、めったに生まれない「${s.name}」の卵だった！`, `✨ Lucky! ${st.name} is a rare "${s.name}" egg!`) : tr(`🐟 ${st.name}は「${s.name}」の卵だった！`, `🐟 ${st.name} is a "${s.name}" egg!`), st.sp === 'bester-w'), 1800);
+}
 let newKan = null;
-$('#newfish-go').onclick = () => { $('#newfish').hidden = true; const k = newKan; newKan = null; addFish(($('#newfish-name').value || (EN ? ['Stella', 'Rocky', 'Pearl'] : ['チョウ子', 'チョウ吉', 'チョウ美'])[R.list.length % 3]).slice(0, 12), k); };
+$('#newfish-go').onclick = () => { $('#newfish').hidden = true; const k = newKan; newKan = null; addFish(($('#newfish-name').value || (EN ? ['Stella', 'Rocky', 'Pearl'] : ['チョウ子', 'チョウ吉', 'チョウ美'])[R.list.length % 3]).slice(0, 12), k, pickSp); };
 $('#newfish-no').onclick = () => { $('#newfish').hidden = true; newKan = null; toast(tr('また次の引っ越しの時に聞くね', 'I\'ll ask again at the next move')); };
 $('#intro-beta').textContent = `${BETA} ／ ${tr('配信・動画・スクショOK', 'streaming, videos & screenshots OK')}`;
 $('#intro-lang').textContent = EN ? '🌐 日本語で遊ぶ' : '🌐 Play in English';
 $('#intro-lang').onclick = () => setLang(EN ? 'ja' : 'en');
 if (!S) {
   $('#intro').hidden = false;
+  spPicker($('#intro-sp'), VISIT);
   if (VISIT) { // 館のQRから来た人には、館の卵
     $('#intro-kan').innerHTML = VISIT.welcome + (VISIT.confirmed ? '' : `<br><small>${tr('（試作）', '(draft)')}</small>`); $('#intro-kan').hidden = false;
     $('#intro-kan').style.borderColor = VISIT.color;
@@ -1766,9 +1890,10 @@ if (!S) {
     $('#intro-go').textContent = tr('特別な卵を受け取る', 'Get the special egg');
   }
   $('#intro-go').onclick = () => {
-    S = newState(($('#intro-name').value || tr('チョウ太', 'Sturgie')).slice(0, 12), VISIT);
+    S = newState(($('#intro-name').value || tr('チョウ太', 'Sturgie')).slice(0, 12), VISIT, pickSp);
     R = { v: 2, active: 0, speed: 2, list: [S] }; meet(VISIT);
     $('#intro').hidden = true; save(); start();
+    if (VISIT) eggSpToast(S);
   };
 } else {
   start();
@@ -1778,7 +1903,7 @@ if (!S) {
     if (!has && R.list.length < MAX_FISH) {
       $('#newfish-text').innerHTML = VISIT.welcome + tr(`<br>もう1匹として育てられます（最大${MAX_FISH}匹）。`, `<br>You can raise it as another fish (up to ${MAX_FISH}).`);
       $('#newfish h2').textContent = tr('🎟 特別な卵', '🎟 A special egg');
-      $('#newfish-name').value = VISIT.fishName; newKan = VISIT; $('#newfish').hidden = false;
+      $('#newfish-name').value = VISIT.fishName; newKan = VISIT; spPicker($('#newfish-sp'), VISIT); $('#newfish').hidden = false;
     } else if (!has) toast(tr(`${VISIT.name}の卵は、水槽が${MAX_FISH}匹でいっぱいなので、放流してあいたら受け取れます`, `Your tanks are full (${MAX_FISH} fish). Release one to get the ${VISIT.name} egg.`));
     else toast(tr(`ようこそ、${VISIT.name}から！ 図鑑の「会いに行ける場所」に館がのっています`, `Welcome from the ${VISIT.name}! See "Places to visit" in the book.`));
   }
@@ -1815,6 +1940,7 @@ function frame(dt) {
     updateFoods(dt, paused ? 0 : dt * SPEEDS[R.speed].d);
     tank.update(dt, time, camera, camTarget);
     others.update(dt, time, S.dev >= 0 ? F.pos : egg.position, Math.max(len() * 0.6, 1));
+    updateMates(dt, time); updateRipples(dt);
     updateCamera(dt);
     if ((time * 4 | 0) !== ((time - dt) * 4 | 0)) { updateHUD(); renderTabs(); maybeStamp(); maybeOfferQuiz(); maybeTip(); }
   }
@@ -1828,7 +1954,7 @@ function frame(dt) {
 requestAnimationFrame(loop);
 
 // 確認用
-window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, showLock, licensed, showStoryCard, openQuiz, showMaster, openArt, rallyScan, showRally, updateDecor, get decor() { return decor; }, care, bondLv, doSpin, onTap, showBond, setMode, get F() { return F; }, GENTEI, VOTE, FORM, setDev(d) { S.dev = d; S.age = d; } };
+window.__cz = { audio, startMovie, offerMovie, get S() { return S; }, get R() { return R; }, switchTo, addFish, offerNewFish, reset() { resetting = true; localStorage.removeItem(SAVE_KEY); location.reload(); }, F, foods, feed, sim, camera, cam, camTarget, others, fish, frame, updateHUD, showLock, licensed, showStoryCard, openQuiz, showMaster, openArt, rallyScan, showRally, updateDecor, buildMates, get mates() { return mates; }, markShu, yubiPaku, get decor() { return decor; }, care, bondLv, doSpin, onTap, showBond, setMode, get F() { return F; }, GENTEI, VOTE, FORM, setDev(d) { S.dev = d; S.age = d; } };
 
 // アプリとして使えるように（ホーム画面に追加・オフライン）
 if ('serviceWorker' in navigator && isSecureContext && !new URLSearchParams(location.search).has('test')) {

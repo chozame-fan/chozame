@@ -133,6 +133,12 @@
   .note-page { background: #fbfaf4; color: #2a3236; border-radius: 12px; padding: 14px 16px; background-image: repeating-linear-gradient(#fbfaf4 0 27px, #d9e3e8 27px 28px); border-left: 6px solid #3b8fd9; }
   .note-page h3 { color: #1b2b33; }
   .kan-shu { margin-top: 14px; border-left-color: #3b6f7e; }
+  .kan-shu .ks-count { font-size: 13px; line-height: 1.6; background: #e6f3f0; border-radius: 8px; padding: 6px 9px; margin: 6px 0; }
+  .kan-shu section.not li { color: #6f7c80; } .ks-tag.ks-no { background: #c9d2d6; color: #3a4a52; }
+  .sp-pick { margin: 0 0 12px; text-align: left; } .sp-pick .sp-h { margin: 0 0 6px; font-size: 13px; font-weight: 700; }
+  .sp-row { display: flex; flex-wrap: wrap; gap: 6px; } .sp-row button { padding: 6px 10px; font-size: 13px; border-radius: 16px; display: inline-flex; align-items: center; gap: 5px; }
+  .sp-row button i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #0005; display: inline-block; } .sp-row button.on { outline: 2px solid #ffd76a; background: rgba(255,215,106,.15); }
+  .sp-pick .sp-note, .sp-pick .sp-kan { font-size: 12px; color: var(--sub); line-height: 1.6; margin: 6px 0 0; }
   .ks-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid #0003; margin-right: 6px; vertical-align: -1px; }
   .ks-tag { font-size: 11px; font-weight: 700; background: #5fd3a0; color: #10322a; border-radius: 8px; padding: 1px 7px; margin-left: 6px; text-decoration: none; display: inline-block; line-height: 18px; }
   .note-page h4 { margin: 14px 0 2px; font-size: 14px; color: #1b2b33; text-decoration: underline; text-underline-offset: 4px; }
@@ -392,6 +398,7 @@
   <div class="head"><h2 data-en="🏠 A tank is free">🏠 水槽があいたよ</h2></div>
   <p id="newfish-text"></p>
   <input id="newfish-name" placeholder="新しい子の名前" data-en-ph="New fish's name" maxlength="12">
+  <div class="sp-pick" id="newfish-sp"></div>
   <div class="nf-btns"><button id="newfish-go" data-en="🥚 Raise an egg">🥚 卵を育てる</button><button id="newfish-no" data-en="Not now">今はいい</button></div>
 </div></div>
 
@@ -471,6 +478,7 @@
   <p class="beta-note" id="intro-beta"></p>
   <p class="kan-note" id="intro-kan" hidden></p>
   <input id="intro-name" placeholder="名前（例：チョウ太）" data-en-ph="Name (e.g. Sturgie)" maxlength="12">
+  <div class="sp-pick" id="intro-sp"></div>
   <button id="intro-go" data-en="Get your egg">卵を受け取る</button>
   <button id="intro-lang" class="lang-btn"></button>
 </div></div>
